@@ -1,3 +1,6 @@
+import os
+os.environ["KERAS_BACKEND"] = "jax"
+
 import yaml
 import keras
 import jax
@@ -6,9 +9,6 @@ from models import create_model
 from train import train_model
 from evaluate import evaluate_model
 import matplotlib.pyplot as plt
-
-# Set JAX as the backend
-keras.backend.set_backend('jax')
 
 def plot_training_history(history, model_name):
     plt.figure(figsize=(12, 4))
