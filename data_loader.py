@@ -1,4 +1,4 @@
-import keras
+import tensorflow as tf
 import jax
 import jax.numpy as jnp
 from jax import random
@@ -10,101 +10,68 @@ def get_mild_square_root_sampler(labels, power=0.3):
     sample_weights = class_weights[labels]
     return sample_weights
 
-def random_flip(key, image):
-    do_flip = random.bernoulli(key)
-    return jnp.where(do_flip, image[:, ::-1, :], image)
-
-def random_rotation(key, image, max_angle=0.2):
-    angle = random.uniform(key, minval=-max_angle, maxval=max_angle)
-    return jax.image.rotate(image, angle, mode='nearest')
-
-def random_zoom(key, image, max_zoom=0.2):
-    zoom = random.uniform(key, minval=1-max_zoom, maxval=1+max_zoom)
-    h, w = image.shape[:2]
-    crop_h = int(h / zoom)
-    crop_w = int(w / zoom)
-    start_h = random.randint(key, 0, h - crop_h + 1)
-    start_w = random.randint(key, 0, w - crop_w + 1)
-    crop = jax.lax.dynamic_slice(image, (start_h, start_w, 0), (crop_h, crop_w, 3))
-    return jax.image.resize(crop, (h, w, 3), method='bilinear')
-
-def random_contrast(key, image, max_factor=0.2):
-    factor = random.uniform(key, minval=1-max_factor, maxval=1+max_factor)
-    mean = jnp.mean(image, axis=(0, 1), keepdims=True)
-    return (image - mean) * factor + mean
-
-def random_brightness(key, image, max_delta=0.2):
-    delta = random.uniform(key, minval=-max_delta, maxval=max_delta)
-    return jnp.clip(image + delta, 0, 1)
-
-def apply_augmentation(key, image, config):
+def apply_augmentation(image, config):
     aug_config = config['data'].get('augmentation', {})
     
-    key, subkey = random.split(key)
-    image = random_flip(subkey, image)
+    # Random flip
+    if tf.random.uniform(()) > 0.5:
+        image = tf.image.flip_left_right(image)
     
-    key, subkey = random.split(key)
-    image = random_rotation(subkey, image, aug_config.get('rotation_range', 0.2))
+    # Random rotation
+    angle = tf.random.uniform((), minval=-aug_config.get('rotation_range', 0.2), maxval=aug_config.get('rotation_range', 0.2))
+    image = tf.image.rotate(image, angle)
     
-    key, subkey = random.split(key)
-    image = random_zoom(subkey, image, aug_config.get('zoom_range', 0.2))
+    # Random zoom
+    zoom = tf.random.uniform((), minval=1-aug_config.get('zoom_range', 0.2), maxval=1+aug_config.get('zoom_range', 0.2))
+    h, w = tf.shape(image)[0], tf.shape(image)[1]
+    crop_h = tf.cast(h / zoom, tf.int32)
+    crop_w = tf.cast(w / zoom, tf.int32)
+    image = tf.image.random_crop(image, (crop_h, crop_w, 3))
+    image = tf.image.resize(image, (h, w))
     
-    key, subkey = random.split(key)
-    image = random_contrast(subkey, image, aug_config.get('contrast_range', 0.2))
+    # Random contrast
+    image = tf.image.random_contrast(image, 1-aug_config.get('contrast_range', 0.2), 1+aug_config.get('contrast_range', 0.2))
     
-    key, subkey = random.split(key)
-    image = random_brightness(subkey, image, aug_config.get('brightness_range', 0.2))
+    # Random brightness
+    image = tf.image.random_brightness(image, aug_config.get('brightness_range', 0.2))
     
-    return image
+    return tf.clip_by_value(image, 0, 1)
 
 def load_data(config, model_name):
     img_size = config['models'][model_name]['img_size']
     
-    train_ds = keras.utils.image_dataset_from_directory(
-        config['data']['train_dir'],
-        image_size=(img_size, img_size),
-        batch_size=config['data']['batch_size'],
-        shuffle=False
-    )
-    val_ds = keras.utils.image_dataset_from_directory(
-        config['data']['val_dir'],
-        image_size=(img_size, img_size),
-        batch_size=config['data']['batch_size']
-    )
-    test_ds = keras.utils.image_dataset_from_directory(
-        config['data']['test_dir'],
-        image_size=(img_size, img_size),
-        batch_size=config['data']['batch_size']
-    )
+    def parse_and_augment(example):
+        image = tf.image.resize(example['image'], (img_size, img_size))
+        image = tf.cast(image, tf.float32) / 255.0  # Normalize to [0, 1]
+        image = apply_augmentation(image, config)
+        label = example['label']
+        return image, label
+
+    train_ds = tf.data.Dataset.load(config['data']['train_dir'])
+    val_ds = tf.data.Dataset.load(config['data']['val_dir'])
+    test_ds = tf.data.Dataset.load(config['data']['test_dir'])
+
+    # Apply parsing and augmentation
+    train_ds = train_ds.map(parse_and_augment, num_parallel_calls=tf.data.AUTOTUNE)
+    val_ds = val_ds.map(lambda x: (tf.cast(tf.image.resize(x['image'], (img_size, img_size)), tf.float32) / 255.0, x['label']))
+    test_ds = test_ds.map(lambda x: (tf.cast(tf.image.resize(x['image'], (img_size, img_size)), tf.float32) / 255.0, x['label']))
 
     # Calculate sampling weights
-    train_labels = np.concatenate([y.numpy() for x, y in train_ds], axis=0)
+    train_labels = np.array(list(train_ds.map(lambda x, y: y).as_numpy_iterator()))
     sample_weights = get_mild_square_root_sampler(train_labels, config['sampling']['power'])
 
-    # Convert Keras datasets to NumPy arrays
-    train_images = np.concatenate([x.numpy() for x, y in train_ds], axis=0)
-    train_labels = np.concatenate([y.numpy() for x, y in train_ds], axis=0)
+    # Add weights to the training dataset
+    train_ds = train_ds.map(lambda x, y: (x, y, sample_weights[y]))
 
-    # Apply augmentation and use the weights
-    @jax.jit
-    def augment_and_weight(key, image, label, weight):
-        augmented_image = apply_augmentation(key, image, config)
-        return augmented_image, label, weight
+    # Batch and prefetch
+    train_ds = train_ds.shuffle(10000).batch(config['data']['batch_size']).prefetch(tf.data.AUTOTUNE)
+    val_ds = val_ds.batch(config['data']['batch_size']).prefetch(tf.data.AUTOTUNE)
+    test_ds = test_ds.batch(config['data']['batch_size']).prefetch(tf.data.AUTOTUNE)
 
-    # Use vmap to apply augmentation to all images
-    augment_and_weight_batch = jax.vmap(augment_and_weight, in_axes=(0, 0, 0, 0))
+    # Convert to NumPy iterator for JAX compatibility
+    train_iter = iter(train_ds.as_numpy_iterator())
 
-    # Create a dataset of images, labels, and weights
-    train_ds = keras.data.Dataset.from_tensor_slices((train_images, train_labels, sample_weights))
-
-    # Shuffle and repeat the dataset
-    train_ds = train_ds.shuffle(buffer_size=len(train_labels)).repeat()
-
-    # Function to get next batch and apply augmentation
     def get_next_batch():
-        batch = next(iter(train_ds))
-        images, labels, weights = batch
-        keys = random.split(random.PRNGKey(0), images.shape[0])
-        return augment_and_weight_batch(keys, images, labels, weights)
+        return next(train_iter)
 
     return get_next_batch, val_ds, test_ds, len(train_labels)
