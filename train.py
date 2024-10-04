@@ -54,6 +54,12 @@ def train_model(model, train_ds, val_ds, config, steps_per_epoch):
 
     model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy', F1Score()])
 
+    # Add a custom callback for debugging
+    class DebugCallback(keras.callbacks.Callback):
+        def on_batch_end(self, batch, logs=None):
+            if batch % 100 == 0:  # Print every 100 batches
+                print(f"Batch {batch} - loss: {logs['loss']:.4f}, accuracy: {logs['accuracy']:.4f}, f1_score: {logs['f1_score']:.4f}")
+
     history = model.fit(
         x=train_ds,
         steps_per_epoch=steps_per_epoch,
@@ -62,7 +68,8 @@ def train_model(model, train_ds, val_ds, config, steps_per_epoch):
         callbacks=[
             keras.callbacks.EarlyStopping(patience=5, restore_best_weights=True),
             keras.callbacks.ReduceLROnPlateau(factor=0.1, patience=3),
-            MetricsLogger()
+            MetricsLogger(),
+            DebugCallback()  # Add this new callback
         ]
     )
 

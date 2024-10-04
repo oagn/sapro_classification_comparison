@@ -66,6 +66,7 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
             .batch(batch_size)
             .map(lambda x, y, w: (rand_aug(tf.cast(x, tf.uint8)), y, w), 
                  num_parallel_calls=tf.data.AUTOTUNE)
+            .repeat()  # Add this line
             .prefetch(tf.data.AUTOTUNE)
         )
     elif ds_name == "validation":
@@ -73,6 +74,7 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
             .map(lambda img_path, img_class: (load(img_path), img_class), 
                  num_parallel_calls=tf.data.AUTOTUNE)
             .batch(batch_size)
+            .repeat()  # Add this line
             .prefetch(tf.data.AUTOTUNE)
         )
     else:  # test
@@ -80,6 +82,7 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
             .map(lambda img_path, img_class: (load(img_path), img_class), 
                  num_parallel_calls=tf.data.AUTOTUNE)
             .batch(batch_size)
+            .repeat()  # Add this line
             .prefetch(tf.data.AUTOTUNE)
         )  
     return ds
