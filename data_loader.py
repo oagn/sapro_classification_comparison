@@ -40,21 +40,33 @@ def apply_augmentation(image, config):
 def load_data(config, model_name):
     img_size = config['models'][model_name]['img_size']
     
-    def parse_and_augment(example):
-        image = tf.image.resize(example['image'], (img_size, img_size))
-        image = tf.cast(image, tf.float32) / 255.0  # Normalize to [0, 1]
+    def preprocess_and_augment(image, label):
+        image = tf.cast(image, tf.float32) / 255.0
         image = apply_augmentation(image, config)
-        label = example['label']
         return image, label
 
-    train_ds = tf.data.Dataset.load(config['data']['train_dir'])
-    val_ds = tf.data.Dataset.load(config['data']['val_dir'])
-    test_ds = tf.data.Dataset.load(config['data']['test_dir'])
+    train_ds = tf.keras.utils.image_dataset_from_directory(
+        config['data']['train_dir'],
+        image_size=(img_size, img_size),
+        batch_size=None,  # We'll batch later
+        shuffle=True,
+        seed=42
+    )
+    
+    val_ds = tf.keras.utils.image_dataset_from_directory(
+        config['data']['val_dir'],
+        image_size=(img_size, img_size),
+        batch_size=config['data']['batch_size']
+    )
+    
+    test_ds = tf.keras.utils.image_dataset_from_directory(
+        config['data']['test_dir'],
+        image_size=(img_size, img_size),
+        batch_size=config['data']['batch_size']
+    )
 
-    # Apply parsing and augmentation
-    train_ds = train_ds.map(parse_and_augment, num_parallel_calls=tf.data.AUTOTUNE)
-    val_ds = val_ds.map(lambda x: (tf.cast(tf.image.resize(x['image'], (img_size, img_size)), tf.float32) / 255.0, x['label']))
-    test_ds = test_ds.map(lambda x: (tf.cast(tf.image.resize(x['image'], (img_size, img_size)), tf.float32) / 255.0, x['label']))
+    # Apply augmentation to training data
+    train_ds = train_ds.map(preprocess_and_augment, num_parallel_calls=tf.data.AUTOTUNE)
 
     # Calculate sampling weights
     train_labels = np.array(list(train_ds.map(lambda x, y: y).as_numpy_iterator()))
@@ -65,8 +77,8 @@ def load_data(config, model_name):
 
     # Batch and prefetch
     train_ds = train_ds.shuffle(10000).batch(config['data']['batch_size']).prefetch(tf.data.AUTOTUNE)
-    val_ds = val_ds.batch(config['data']['batch_size']).prefetch(tf.data.AUTOTUNE)
-    test_ds = test_ds.batch(config['data']['batch_size']).prefetch(tf.data.AUTOTUNE)
+    val_ds = val_ds.prefetch(tf.data.AUTOTUNE)
+    test_ds = test_ds.prefetch(tf.data.AUTOTUNE)
 
     # Convert to NumPy iterator for JAX compatibility
     train_iter = iter(train_ds.as_numpy_iterator())
