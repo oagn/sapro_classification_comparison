@@ -1,7 +1,5 @@
 import tensorflow as tf
-import jax
-import jax.numpy as jnp
-from jax import random
+import keras_cv
 import numpy as np
 
 def get_mild_square_root_sampler(labels, power=0.3):
@@ -10,45 +8,26 @@ def get_mild_square_root_sampler(labels, power=0.3):
     sample_weights = class_weights[labels]
     return sample_weights
 
-def apply_augmentation(image, config):
-    aug_config = config['data'].get('augmentation', {})
-    
-    # Random flip
-    if tf.random.uniform(()) > 0.5:
-        image = tf.image.flip_left_right(image)
-    
-    # Random rotation
-    angle = tf.random.uniform((), minval=-aug_config.get('rotation_range', 0.2), maxval=aug_config.get('rotation_range', 0.2))
-    image = tf.image.rotate(image, angle)
-    
-    # Random zoom
-    zoom = tf.random.uniform((), minval=1-aug_config.get('zoom_range', 0.2), maxval=1+aug_config.get('zoom_range', 0.2))
-    h, w = tf.shape(image)[0], tf.shape(image)[1]
-    crop_h = tf.cast(h / zoom, tf.int32)
-    crop_w = tf.cast(w / zoom, tf.int32)
-    image = tf.image.random_crop(image, (crop_h, crop_w, 3))
-    image = tf.image.resize(image, (h, w))
-    
-    # Random contrast
-    image = tf.image.random_contrast(image, 1-aug_config.get('contrast_range', 0.2), 1+aug_config.get('contrast_range', 0.2))
-    
-    # Random brightness
-    image = tf.image.random_brightness(image, aug_config.get('brightness_range', 0.2))
-    
-    return tf.clip_by_value(image, 0, 1)
-
 def load_data(config, model_name):
     img_size = config['models'][model_name]['img_size']
     
+    # Create RandAugment layer
+    rand_aug = keras_cv.layers.RandAugment(
+        value_range=(0, 255),
+        augmentations_per_image=3,
+        magnitude=config['data'].get('augmentation_magnitude', 0.3)
+    )
+
     def preprocess_and_augment(image, label):
-        image = tf.cast(image, tf.float32) / 255.0
-        image = apply_augmentation(image, config)
+        image = tf.cast(image, tf.float32)
+        image = rand_aug(image)
+        image = image / 255.0  # Normalize to [0, 1]
         return image, label
 
     train_ds = tf.keras.utils.image_dataset_from_directory(
         config['data']['train_dir'],
         image_size=(img_size, img_size),
-        batch_size=None,  # We'll batch later
+        batch_size=config['data']['batch_size'],
         shuffle=True,
         seed=42
     )
@@ -69,16 +48,16 @@ def load_data(config, model_name):
     train_ds = train_ds.map(preprocess_and_augment, num_parallel_calls=tf.data.AUTOTUNE)
 
     # Calculate sampling weights
-    train_labels = np.array(list(train_ds.map(lambda x, y: y).as_numpy_iterator()))
+    train_labels = np.concatenate([y for x, y in train_ds], axis=0)
     sample_weights = get_mild_square_root_sampler(train_labels, config['sampling']['power'])
 
     # Add weights to the training dataset
-    train_ds = train_ds.map(lambda x, y: (x, y, sample_weights[y]))
+    train_ds = train_ds.map(lambda x, y: (x, y, tf.gather(sample_weights, y)))
 
-    # Batch and prefetch
-    train_ds = train_ds.shuffle(10000).batch(config['data']['batch_size']).prefetch(tf.data.AUTOTUNE)
-    val_ds = val_ds.prefetch(tf.data.AUTOTUNE)
-    test_ds = test_ds.prefetch(tf.data.AUTOTUNE)
+    # Shuffle and prefetch
+    train_ds = train_ds.shuffle(10000).prefetch(tf.data.AUTOTUNE)
+    val_ds = val_ds.map(lambda x, y: (tf.cast(x, tf.float32) / 255.0, y)).prefetch(tf.data.AUTOTUNE)
+    test_ds = test_ds.map(lambda x, y: (tf.cast(x, tf.float32) / 255.0, y)).prefetch(tf.data.AUTOTUNE)
 
     # Convert to NumPy iterator for JAX compatibility
     train_iter = iter(train_ds.as_numpy_iterator())
