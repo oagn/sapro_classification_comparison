@@ -111,11 +111,12 @@ def load_data(config, model_name):
     train_ds = create_tensorset(train_df, img_size, batch_size, augmentation_magnitude, 
                                 ds_name="train", sample_weights=sample_weights)
 
-    # Load validation and test data (no sampling or augmentation needed)
+    # Load validation data
     val_df = create_fixed(config['data']['val_dir'])
     val_ds = create_tensorset(val_df, img_size, batch_size, 0, ds_name="validation")
 
+    # Load test data
     test_df = create_fixed(config['data']['test_dir'])
     test_ds = create_tensorset(test_df, img_size, batch_size, 0, ds_name="test")
 
-    return train_ds, val_ds, test_ds, len(train_df)
+    return train_ds, val_ds, test_ds, len(train_df), len(val_df)
