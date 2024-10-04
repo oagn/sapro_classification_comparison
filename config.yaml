@@ -1,0 +1,24 @@
+data:
+  train_dir: '/path/to/train/data'
+  val_dir: '/path/to/val/data'
+  test_dir: '/path/to/test/data'
+  batch_size: 32
+
+models:
+  MobileNetV3:
+    img_size: 224
+  EfficientNetV2B0:
+    img_size: 224
+  EfficientNetV2S:
+    img_size: 300
+  ResNet50:
+    img_size: 224
+
+training:
+  epochs: 50
+  learning_rate: 0.001
+  focal_loss_gamma: 2.0
+
+sampling:
+  method: 'mild_square_root'
+  power: 0.3
