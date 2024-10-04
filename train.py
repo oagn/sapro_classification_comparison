@@ -1,5 +1,6 @@
 import keras
 import tensorflow as tf
+import numpy as np
 
 class FocalLoss(keras.losses.Loss):
     def __init__(self, gamma=2.0, alpha=None):
@@ -9,7 +10,7 @@ class FocalLoss(keras.losses.Loss):
 
     def call(self, y_true, y_pred):
         ce_loss = keras.losses.categorical_crossentropy(y_true, y_pred)
-        pt = tf.exp(-ce_loss)
+        pt = keras.ops.exp(-ce_loss)
         focal_loss = (1 - pt)**self.gamma * ce_loss
         if self.alpha is not None:
             focal_loss = self.alpha * focal_loss
@@ -22,15 +23,15 @@ class F1Score(keras.metrics.Metric):
         self.recall = keras.metrics.Recall()
 
     def update_state(self, y_true, y_pred, sample_weight=None):
-        y_true = tf.argmax(y_true, axis=1)
-        y_pred = tf.argmax(y_pred, axis=1)
+        y_true = keras.ops.argmax(y_true, axis=-1)
+        y_pred = keras.ops.argmax(y_pred, axis=-1)
         self.precision.update_state(y_true, y_pred, sample_weight)
         self.recall.update_state(y_true, y_pred, sample_weight)
 
     def result(self):
         p = self.precision.result()
         r = self.recall.result()
-        return 2 * ((p * r) / (p + r + K.epsilon()))
+        return 2 * ((p * r) / (p + r + keras.ops.epsilon()))
 
     def reset_state(self):
         self.precision.reset_state()
@@ -42,7 +43,7 @@ class MetricsLogger(keras.callbacks.Callback):
         for metric, value in logs.items():
             print(f"Epoch {epoch+1}: {metric} = {value:.4f}")
 
-def train_model(model, train_ds, val_ds, config, steps_per_epoch):
+def train_model(model, get_next_batch, val_ds, config, steps_per_epoch):
     optimizer = keras.optimizers.Adam(learning_rate=config['training']['learning_rate'])
     loss = FocalLoss(gamma=config['training']['focal_loss_gamma'])
 
@@ -51,10 +52,10 @@ def train_model(model, train_ds, val_ds, config, steps_per_epoch):
                   metrics=['accuracy', F1Score()])
 
     history = model.fit(
-        train_ds,
-        validation_data=val_ds,
-        epochs=config['training']['epochs'],
+        x=get_next_batch,
         steps_per_epoch=steps_per_epoch,
+        epochs=config['training']['epochs'],
+        validation_data=val_ds,
         callbacks=[
             keras.callbacks.EarlyStopping(patience=5, restore_best_weights=True),
             keras.callbacks.ReduceLROnPlateau(factor=0.1, patience=3),
