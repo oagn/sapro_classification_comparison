@@ -2,6 +2,82 @@ import tensorflow as tf
 import keras_cv
 import numpy as np
 import jax.numpy as jnp
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+import pandas as pd
+from pathlib import Path
+import os
+
+
+def create_fixed(ds_path):
+    # Selecting folder paths in dataset
+    dir_ = Path(ds_path)
+    ds_filepaths = list(dir_.glob(r'**/*.jpg'))
+    ds_filepaths.extend(list(dir_.glob(r'**/*.JPG')))
+    ds_filepaths.extend(list(dir_.glob(r'**/*.jpeg')))
+    ds_filepaths.extend(list(dir_.glob(r'**/*.png')))
+    ds_filepaths.extend(list(dir_.glob(r'**/*.PNG')))
+    # Mapping labels...
+    ds_labels = list(map(lambda x: os.path.split(os.path.split(x)[0])[1], ds_filepaths))
+    # Data set paths & labels
+    ds_filepaths = pd.Series(ds_filepaths, name='File').astype(str)
+    ds_labels = pd.Series(ds_labels, name='Label')
+    # Concatenating...
+    ds_df = pd.concat([ds_filepaths, ds_labels], axis=1)
+    return ds_df
+
+
+# This function takes a pandas df from create_dataframe and converts to a TensorFlow dataset
+def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sample_weights=None):
+    
+    def load(file_path):
+        img = tf.io.read_file(file_path)
+        img = tf.image.decode_png(img, channels=3)
+        img = tf.image.convert_image_dtype(img, tf.uint8)
+        img = tf.image.resize(img, size=(img_size, img_size))
+        return img
+
+    in_path = in_df['File']
+    label_encoder = LabelEncoder()
+    in_class = label_encoder.fit_transform(in_df['Label'].values)
+
+    in_class = in_class.reshape(len(in_class), 1)
+    one_hot_encoder = OneHotEncoder(sparse_output=False)
+    in_class = one_hot_encoder.fit_transform(in_class)
+    
+    rand_aug = keras_cv.layers.RandAugment(
+        value_range=(0, 255), augmentations_per_image=3, magnitude=magnitude)
+
+    if ds_name == "train":
+        if sample_weights is None:
+            raise ValueError("Sample weights must be provided for training data")
+        
+        ds = tf.data.Dataset.from_tensor_slices((in_path, in_class, sample_weights))
+        ds = ds.sample(len(in_df), weights=sample_weights, seed=42)
+        
+        ds = (ds
+            .map(lambda img_path, img_class, weight: (load(img_path), img_class, weight), 
+                 num_parallel_calls=tf.data.AUTOTUNE)
+            .batch(batch_size)
+            .map(lambda x, y, w: (rand_aug(tf.cast(x, tf.uint8)), y, w), 
+                 num_parallel_calls=tf.data.AUTOTUNE)
+            .prefetch(tf.data.AUTOTUNE)
+        )
+    elif ds_name == "validation":
+        ds = (tf.data.Dataset.from_tensor_slices((in_path, in_class))
+            .map(lambda img_path, img_class: (load(img_path), img_class), 
+                 num_parallel_calls=tf.data.AUTOTUNE)
+            .batch(batch_size)
+            .prefetch(tf.data.AUTOTUNE)
+        )
+    else:  # test
+        ds = (tf.data.Dataset.from_tensor_slices((in_path, in_class))
+            .map(lambda img_path, img_class: (load(img_path), img_class), 
+                 num_parallel_calls=tf.data.AUTOTUNE)
+            .batch(batch_size)
+            .prefetch(tf.data.AUTOTUNE)
+        )  
+    return ds
+
 
 def get_mild_square_root_sampler(labels, power=0.3):
     class_counts = np.bincount(labels)
@@ -11,72 +87,26 @@ def get_mild_square_root_sampler(labels, power=0.3):
 
 def load_data(config, model_name):
     img_size = config['models'][model_name]['img_size']
+    batch_size = config['data']['batch_size']
+    augmentation_magnitude = config['data'].get('augmentation_magnitude', 0.3)
+
+    # Load training data
+    train_df = create_fixed(config['data']['train_dir'])
     
-    # Create RandAugment layer
-    rand_aug = keras_cv.layers.RandAugment(
-        value_range=(0, 255),
-        augmentations_per_image=3,
-        magnitude=config['data'].get('augmentation_magnitude', 0.3)
-    )
-
-    def preprocess_and_augment(image, label):
-        image = tf.cast(image, tf.float32)
-        image = rand_aug(image)
-        image = image / 255.0  # Normalize to [0, 1]
-        return image, label
-
-    train_ds = tf.keras.utils.image_dataset_from_directory(
-        config['data']['train_dir'],
-        image_size=(img_size, img_size),
-        batch_size=config['data']['batch_size'],
-        shuffle=True,
-        seed=42
-    )
-    
-    val_ds = tf.keras.utils.image_dataset_from_directory(
-        config['data']['val_dir'],
-        image_size=(img_size, img_size),
-        batch_size=config['data']['batch_size']
-    )
-    
-    test_ds = tf.keras.utils.image_dataset_from_directory(
-        config['data']['test_dir'],
-        image_size=(img_size, img_size),
-        batch_size=config['data']['batch_size']
-    )
-
-    # Apply augmentation to training data
-    train_ds = train_ds.map(preprocess_and_augment, num_parallel_calls=tf.data.AUTOTUNE)
-
     # Calculate sampling weights
-    train_labels = np.concatenate([y for x, y in train_ds], axis=0)
+    label_encoder = LabelEncoder()
+    train_labels = label_encoder.fit_transform(train_df['Label'].values)
     sample_weights = get_mild_square_root_sampler(train_labels, config['sampling']['power'])
+    
+    # Create training dataset with weighted sampling
+    train_ds = create_tensorset(train_df, img_size, batch_size, augmentation_magnitude, 
+                                ds_name="train", sample_weights=sample_weights)
 
-    # Add weights to the training dataset
-    train_ds = train_ds.map(lambda x, y: (x, y, tf.gather(sample_weights, y)))
+    # Load validation and test data (no sampling or augmentation needed)
+    val_df = create_fixed(config['data']['val_dir'])
+    val_ds = create_tensorset(val_df, img_size, batch_size, 0, ds_name="validation")
 
-    # Shuffle and prefetch
-    train_ds = train_ds.shuffle(10000).prefetch(tf.data.AUTOTUNE)
-    val_ds = val_ds.map(lambda x, y: (tf.cast(x, tf.float32) / 255.0, y)).prefetch(tf.data.AUTOTUNE)
-    test_ds = test_ds.map(lambda x, y: (tf.cast(x, tf.float32) / 255.0, y)).prefetch(tf.data.AUTOTUNE)
+    test_df = create_fixed(config['data']['test_dir'])
+    test_ds = create_tensorset(test_df, img_size, batch_size, 0, ds_name="test")
 
-    # Convert to NumPy iterator for JAX compatibility
-    train_iter = iter(train_ds.as_numpy_iterator())
-
-    class DataGenerator:
-        def __init__(self, iterator):
-            self.iterator = iterator
-
-        def __iter__(self):
-            return self
-
-        def __next__(self):
-            try:
-                batch = next(self.iterator)
-                return jnp.array(batch[0]), jnp.array(batch[1]), jnp.array(batch[2])
-            except StopIteration:
-                raise StopIteration
-
-    train_generator = DataGenerator(train_iter)
-
-    return train_generator, val_ds, test_ds, len(train_labels)
+    return train_ds, val_ds, test_ds, len(train_df)
