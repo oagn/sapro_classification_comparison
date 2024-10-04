@@ -3,6 +3,11 @@ data:
   val_dir: '/path/to/val/data'
   test_dir: '/path/to/test/data'
   batch_size: 32
+  augmentation:
+    rotation_range: 0.2
+    zoom_range: 0.2
+    contrast_range: 0.2
+    brightness_range: 0.2
 
 models:
   MobileNetV3:
