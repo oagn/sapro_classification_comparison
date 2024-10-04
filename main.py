@@ -41,11 +41,11 @@ def main():
 
     for model_name in config['models']:
         print(f"Training {model_name}...")
-        train_ds, val_ds, test_ds, num_train_samples = load_data(config, model_name)
+        train_generator, val_ds, test_ds, num_train_samples = load_data(config, model_name)
         steps_per_epoch = num_train_samples // config['data']['batch_size']
 
-        model = create_model(model_name, num_classes=2, config=config)  # Assuming binary classification
-        history = train_model(model, train_ds, val_ds, config, steps_per_epoch)
+        model = create_model(model_name, num_classes=2, config=config)
+        history = train_model(model, train_generator, val_ds, config, steps_per_epoch)
         
         # Plot and save training history
         plot_training_history(history, model_name)

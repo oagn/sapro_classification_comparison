@@ -19,7 +19,6 @@ training:
   epochs: 50
   learning_rate: 0.001
   focal_loss_gamma: 2.0
-
 sampling:
   method: 'mild_square_root'
   power: 0.3

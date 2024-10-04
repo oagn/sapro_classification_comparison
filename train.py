@@ -43,14 +43,14 @@ class MetricsLogger(keras.callbacks.Callback):
         for metric, value in logs.items():
             print(f"Epoch {epoch+1}: {metric} = {value:.4f}")
 
-def train_model(model, get_next_batch, val_ds, config, steps_per_epoch):
+def train_model(model, train_generator, val_ds, config, steps_per_epoch):
     optimizer = keras.optimizers.Adam(learning_rate=config['training']['learning_rate'])
     loss = FocalLoss(gamma=config['training']['focal_loss_gamma'])
 
     model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy', F1Score()])
 
     history = model.fit(
-        x=get_next_batch,
+        x=train_generator,
         steps_per_epoch=steps_per_epoch,
         epochs=config['training']['epochs'],
         validation_data=val_ds,

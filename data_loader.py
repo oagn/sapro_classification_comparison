@@ -1,6 +1,7 @@
 import tensorflow as tf
 import keras_cv
 import numpy as np
+import jax.numpy as jnp
 
 def get_mild_square_root_sampler(labels, power=0.3):
     class_counts = np.bincount(labels)
@@ -62,7 +63,20 @@ def load_data(config, model_name):
     # Convert to NumPy iterator for JAX compatibility
     train_iter = iter(train_ds.as_numpy_iterator())
 
-    def get_next_batch():
-        return next(train_iter)
+    class DataGenerator:
+        def __init__(self, iterator):
+            self.iterator = iterator
 
-    return get_next_batch, val_ds, test_ds, len(train_labels)
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            try:
+                batch = next(self.iterator)
+                return jnp.array(batch[0]), jnp.array(batch[1]), jnp.array(batch[2])
+            except StopIteration:
+                raise StopIteration
+
+    train_generator = DataGenerator(train_iter)
+
+    return train_generator, val_ds, test_ds, len(train_labels)
