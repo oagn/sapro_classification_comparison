@@ -28,7 +28,6 @@ def create_fixed(ds_path):
 
 # This function takes a pandas df from create_dataframe and converts to a TensorFlow dataset
 def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sample_weights=None):
-    
     def load(file_path):
         img = tf.io.read_file(file_path)
         img = tf.image.decode_png(img, channels=3)
@@ -51,8 +50,15 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
         if sample_weights is None:
             raise ValueError("Sample weights must be provided for training data")
         
+        # Implement weighted sampling manually
+        sample_weights = sample_weights / np.sum(sample_weights)
+        choice_indices = np.random.choice(len(in_df), size=len(in_df), p=sample_weights)
+        
+        in_path = tf.gather(in_path, choice_indices)
+        in_class = tf.gather(in_class, choice_indices)
+        sample_weights = tf.gather(sample_weights, choice_indices)
+        
         ds = tf.data.Dataset.from_tensor_slices((in_path, in_class, sample_weights))
-        ds = ds.sample(len(in_df), weights=sample_weights, seed=42)
         
         ds = (ds
             .map(lambda img_path, img_class, weight: (load(img_path), img_class, weight), 
