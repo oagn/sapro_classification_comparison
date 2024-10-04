@@ -1,4 +1,6 @@
 import keras
+import tensorflow as tf
+import numpy as np
 import jax.numpy as jnp
 
 class FocalLoss(keras.losses.Loss):
@@ -40,6 +42,12 @@ class F1Score(keras.metrics.Metric):
         self.precision.reset_state()
         self.recall.reset_state()
 
+class MetricsLogger(keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        for metric, value in logs.items():
+            print(f"Epoch {epoch+1}: {metric} = {value:.4f}")
+
 def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_steps):
     optimizer = keras.optimizers.Adam(learning_rate=config['training']['learning_rate'])
     loss = FocalLoss(gamma=config['training']['focal_loss_gamma'])
@@ -51,7 +59,7 @@ def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_ste
             print(f"Epoch {epoch+1} ended. Logs: {logs}")
 
     history = model.fit(
-        train_ds,
+        x=train_ds,
         steps_per_epoch=steps_per_epoch,
         epochs=config['training']['epochs'],
         validation_data=val_ds,
