@@ -48,28 +48,27 @@ class MetricsLogger(keras.callbacks.Callback):
         for metric, value in logs.items():
             print(f"Epoch {epoch+1}: {metric} = {value:.4f}")
 
-def train_model(model, train_ds, val_ds, config, steps_per_epoch):
+def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_steps):
     optimizer = keras.optimizers.Adam(learning_rate=config['training']['learning_rate'])
     loss = FocalLoss(gamma=config['training']['focal_loss_gamma'])
 
     model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy', F1Score()])
 
-    # Add a custom callback for debugging
     class DebugCallback(keras.callbacks.Callback):
-        def on_batch_end(self, batch, logs=None):
-            if batch % 100 == 0:  # Print every 100 batches
-                print(f"Batch {batch} - loss: {logs['loss']:.4f}, accuracy: {logs['accuracy']:.4f}, f1_score: {logs['f1_score']:.4f}")
+        def on_epoch_end(self, epoch, logs=None):
+            print(f"Epoch {epoch+1} ended. Logs: {logs}")
 
     history = model.fit(
         x=train_ds,
         steps_per_epoch=steps_per_epoch,
         epochs=config['training']['epochs'],
         validation_data=val_ds,
+        validation_steps=validation_steps,
         callbacks=[
             keras.callbacks.EarlyStopping(patience=5, restore_best_weights=True),
             keras.callbacks.ReduceLROnPlateau(factor=0.1, patience=3),
             MetricsLogger(),
-            DebugCallback()  # Add this new callback
+            DebugCallback()
         ]
     )
 
