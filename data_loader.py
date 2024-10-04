@@ -95,7 +95,7 @@ def load_data(config, model_name):
     augment_and_weight_batch = jax.vmap(augment_and_weight, in_axes=(0, 0, 0, 0))
 
     # Create a dataset of images, labels, and weights
-    train_ds = keras.utils.DatasetCreator(lambda: keras.utils.dataset_from_tensor_slices((train_images, train_labels, sample_weights)))
+    train_ds = keras.utils.dataset_from_tensor_slices((train_images, train_labels, sample_weights))
 
     # Shuffle and repeat the dataset
     train_ds = train_ds.shuffle(buffer_size=len(train_labels)).repeat()

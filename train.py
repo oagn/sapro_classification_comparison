@@ -47,9 +47,7 @@ def train_model(model, get_next_batch, val_ds, config, steps_per_epoch):
     optimizer = keras.optimizers.Adam(learning_rate=config['training']['learning_rate'])
     loss = FocalLoss(gamma=config['training']['focal_loss_gamma'])
 
-    model.compile(optimizer=optimizer, 
-                  loss=loss, 
-                  metrics=['accuracy', F1Score()])
+    model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy', F1Score()])
 
     history = model.fit(
         x=get_next_batch,
