@@ -13,9 +13,13 @@ class FocalLoss(keras.losses.Loss):
         ce_loss = keras.ops.categorical_crossentropy(y_true, y_pred, from_logits=False)
         pt = keras.ops.sum(y_true * y_pred, axis=-1)
         focal_loss = keras.ops.power(1. - pt, self.gamma) * ce_loss
-        alpha_factor = y_true * self.alpha + (1 - y_true) * (1 - self.alpha)
+        
+        # Modify alpha_factor calculation
+        alpha_factor = self.alpha * y_true + (1 - self.alpha) * (1 - y_true)
+        alpha_factor = keras.ops.sum(alpha_factor, axis=-1)
+        
         modulated_loss = alpha_factor * focal_loss
-        return keras.ops.mean(modulated_loss, axis=-1)
+        return keras.ops.mean(modulated_loss)
 
 class F1Score(keras.metrics.Metric):
     def __init__(self, name='f1_score', **kwargs):
