@@ -1,20 +1,21 @@
 import keras
 import tensorflow as tf
 import numpy as np
+import jax.numpy as jnp
 
 class FocalLoss(keras.losses.Loss):
-    def __init__(self, gamma=2.0, alpha=None):
+    def __init__(self, gamma=2.0, alpha=0.25):
         super().__init__()
         self.gamma = gamma
         self.alpha = alpha
 
     def call(self, y_true, y_pred):
-        ce_loss = keras.losses.categorical_crossentropy(y_true, y_pred)
-        pt = keras.ops.exp(-ce_loss)
-        focal_loss = (1 - pt)**self.gamma * ce_loss
-        if self.alpha is not None:
-            focal_loss = self.alpha * focal_loss
-        return focal_loss
+        ce_loss = keras.ops.categorical_crossentropy(y_true, y_pred, from_logits=False)
+        pt = keras.ops.sum(y_true * y_pred, axis=-1)
+        focal_loss = keras.ops.power(1. - pt, self.gamma) * ce_loss
+        alpha_factor = y_true * self.alpha + (1 - y_true) * (1 - self.alpha)
+        modulated_loss = alpha_factor * focal_loss
+        return keras.ops.mean(modulated_loss, axis=-1)
 
 class F1Score(keras.metrics.Metric):
     def __init__(self, name='f1_score', **kwargs):
@@ -31,7 +32,7 @@ class F1Score(keras.metrics.Metric):
     def result(self):
         p = self.precision.result()
         r = self.recall.result()
-        return 2 * ((p * r) / (p + r + keras.ops.epsilon()))
+        return 2 * ((p * r) / (p + r + jnp.finfo(jnp.float32).eps))
 
     def reset_state(self):
         self.precision.reset_state()
