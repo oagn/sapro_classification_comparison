@@ -99,7 +99,7 @@ def apply_sampling_method(labels, sampling_config):
     elif sampling_method == 'mild_square_root':
         return get_square_root_sampling_weights(labels, mild=True, power=sampling_power)
     elif sampling_method == 'square_root':
-        return get_square_root_sampling_weights(labels, mild=False, power=sampling_power)
+        return get_square_root_sampling_weights(labels, mild=False, power=0.5)
     else:
         print(f"Unknown sampling method: {sampling_method}. No sampling applied.")
         return np.ones_like(labels, dtype=np.float32)  # No sampling
