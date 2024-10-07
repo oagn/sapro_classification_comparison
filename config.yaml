@@ -20,5 +20,5 @@ training:
   learning_rate: 0.001
   focal_loss_gamma: 2.0
 sampling:
-  method: 'minority_oversampling'
+  method: minority_oversampling
   power: 0.3

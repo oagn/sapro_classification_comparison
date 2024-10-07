@@ -79,23 +79,28 @@ def get_minority_oversampling_weights(labels):
     weights[labels == minority_class] = class_counts.max() / class_counts[minority_class]
     return weights
 
-def get_square_root_sampling_weights(labels, mild=False):
+def get_square_root_sampling_weights(labels, mild=False, power=0.5):
     class_counts = np.bincount(labels)
     if mild:
-        weights = np.sqrt(class_counts.max() / class_counts)
+        weights = np.power(class_counts.max() / class_counts, power)
     else:
-        weights = np.sqrt(class_counts)
+        weights = np.power(class_counts, power)
     return weights[labels]
 
-def apply_sampling_method(labels, config):
-    sampling_method = config['sampling']['method']
+def apply_sampling_method(labels, sampling_config):
+    sampling_method = sampling_config['method']
+    sampling_power = sampling_config.get('power', 0.5)  # Default to 0.5 if not specified
+    
+    print(f"Applying sampling method: {sampling_method} with power: {sampling_power}")
+    
     if sampling_method == 'minority_oversampling':
         return get_minority_oversampling_weights(labels)
     elif sampling_method == 'mild_square_root':
-        return get_square_root_sampling_weights(labels, mild=True)
+        return get_square_root_sampling_weights(labels, mild=True, power=sampling_power)
     elif sampling_method == 'square_root':
-        return get_square_root_sampling_weights(labels, mild=False)
+        return get_square_root_sampling_weights(labels, mild=False, power=sampling_power)
     else:
+        print(f"Unknown sampling method: {sampling_method}. No sampling applied.")
         return np.ones_like(labels, dtype=np.float32)  # No sampling
 
 def load_data(config, model_name):
@@ -103,13 +108,20 @@ def load_data(config, model_name):
     batch_size = config['data']['batch_size']
     augmentation_magnitude = config['data'].get('augmentation_magnitude', 0.3)
 
+    print(f"Loading data for model: {model_name}")
+    print(f"Image size: {img_size}, Batch size: {batch_size}, Augmentation magnitude: {augmentation_magnitude}")
+
     # Load training data
     train_df = create_fixed(config['data']['train_dir'])
     
     # Calculate sampling weights
     label_encoder = LabelEncoder()
     train_labels = label_encoder.fit_transform(train_df['Label'].values)
-    sample_weights = apply_sampling_method(train_labels, config['sampling']['method'])
+    
+    print("Sampling configuration:")
+    print(config['sampling'])
+    
+    sample_weights = apply_sampling_method(train_labels, config['sampling'])
     
     # Create training dataset with sampling weights
     train_ds = create_tensorset(train_df, img_size, batch_size, augmentation_magnitude, 
@@ -122,5 +134,7 @@ def load_data(config, model_name):
     # Load test data
     test_df = create_fixed(config['data']['test_dir'])
     test_ds = create_tensorset(test_df, img_size, batch_size, 0, ds_name="test")
+
+    print(f"Loaded {len(train_df)} training samples, {len(val_df)} validation samples, and {len(test_df)} test samples")
 
     return train_ds, val_ds, test_ds, len(train_df), len(val_df)
