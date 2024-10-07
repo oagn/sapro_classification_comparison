@@ -66,7 +66,6 @@ def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_ste
             loss=loss,
             metrics=['accuracy', F1Score()],
             jit_compile=True,
-            xla_compile=True,
         )
 
     class DebugCallback(keras.callbacks.Callback):
