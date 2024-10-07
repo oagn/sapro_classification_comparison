@@ -1,5 +1,6 @@
 import tensorflow as tf
 import keras_cv
+import keras
 import numpy as np
 import jax.numpy as jnp
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
@@ -7,6 +8,7 @@ import pandas as pd
 from pathlib import Path
 import os
 from collections import Counter
+from keras.applications import resnet
 
 
 def create_fixed(ds_path):
@@ -28,15 +30,38 @@ def create_fixed(ds_path):
 
 
 # This function takes a pandas df from create_dataframe and converts to a TensorFlow dataset
-def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sample_weights=None):
+import tensorflow as tf
+import keras_cv
+import keras
+import numpy as np
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+import pandas as pd
+from pathlib import Path
+import os
+from collections import Counter
+from keras.applications import resnet
+
+def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sample_weights=None, model_name=None):
     def load(file_path, img_size):
         img = tf.io.read_file(file_path)
-        img = tf.image.decode_png(img, channels=3)
-        img = tf.image.convert_image_dtype(img, tf.uint8)
-        img = tf.image.resize(img, size=(img_size, img_size))
+        img = tf.image.decode_image(img, channels=3, expand_animations=False)
+        img = tf.image.resize(img, [img_size, img_size])
+        img = tf.cast(img, tf.float32)
         return img
 
-    in_path = in_df['File']
+    def preprocess(img, model_name):
+        if model_name == 'ResNet50':
+            # Manual implementation of ResNet50 preprocessing
+            mean = tf.constant([103.939, 116.779, 123.68], dtype=tf.float32)
+            img = img[..., ::-1]  # RGB to BGR
+            img -= mean
+            return img
+        elif model_name in ['MobileNetV3', 'EfficientNetV2B0', 'EfficientNetV2S']:
+            return img  # No preprocessing needed, it's built into the model
+        else:
+            raise ValueError(f"Unknown model name: {model_name}")
+
+    in_path = in_df['File'].values
     label_encoder = LabelEncoder()
     in_class = label_encoder.fit_transform(in_df['Label'].values)
 
@@ -49,7 +74,9 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
 
     if ds_name == "train":
         if sample_weights is None:
-            sample_weights = np.ones(len(in_df), dtype=np.float32)
+            sample_weights = tf.ones(len(in_df), dtype=tf.float32)
+        else:
+            sample_weights = tf.constant(sample_weights, dtype=tf.float32)
         
         ds = tf.data.Dataset.from_tensor_slices((in_path, in_class, sample_weights))
         
@@ -59,6 +86,8 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
             .batch(batch_size)
             .map(lambda x, y, w: (rand_aug(tf.cast(x, tf.uint8)), y, w), 
                  num_parallel_calls=tf.data.AUTOTUNE)
+            .map(lambda x, y, w: (preprocess(x, model_name), y, w),
+                 num_parallel_calls=tf.data.AUTOTUNE)
             .repeat()
             .prefetch(tf.data.AUTOTUNE)
         )
@@ -67,6 +96,8 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
             .map(lambda img_path, img_class: (load(img_path, img_size), img_class), 
                  num_parallel_calls=tf.data.AUTOTUNE)
             .batch(batch_size)
+            .map(lambda x, y: (preprocess(x, model_name), y),
+                 num_parallel_calls=tf.data.AUTOTUNE)
             .repeat()
             .prefetch(tf.data.AUTOTUNE)
         )
@@ -180,15 +211,15 @@ def load_data(config, model_name):
     
     # Create training dataset with sampling weights
     train_ds = create_tensorset(train_df, img_size, batch_size, augmentation_magnitude, 
-                                ds_name="train", sample_weights=sample_weights)
+                                ds_name="train", sample_weights=sample_weights, model_name=model_name)
 
     # Load validation data
     val_df = create_fixed(config['data']['val_dir'])
-    val_ds = create_tensorset(val_df, img_size, batch_size, 0, ds_name="validation")
+    val_ds = create_tensorset(val_df, img_size, batch_size, 0, ds_name="validation", model_name=model_name)
 
     # Load test data
     test_df = create_fixed(config['data']['test_dir'])
-    test_ds = create_tensorset(test_df, img_size, batch_size, 0, ds_name="test")
+    test_ds = create_tensorset(test_df, img_size, batch_size, 0, ds_name="test", model_name=model_name)
 
     num_train_samples = sum(class_counts.values())
     print(f"Loaded {num_train_samples} training samples, {len(val_df)} validation samples, and {len(test_df)} test samples")
