@@ -88,6 +88,21 @@ def get_square_root_sampling_weights(labels, mild=False, power=0.5):
         weights = np.power(class_counts, power)
     return weights[labels]
 
+def get_balanced_sampling_weights(labels):
+    class_counts = np.bincount(labels)
+    target_count = np.mean(class_counts)  # We'll aim for this count for each class
+    weights = np.zeros_like(labels, dtype=np.float32)
+    
+    for class_label, count in enumerate(class_counts):
+        if count > target_count:
+            # Undersample
+            weights[labels == class_label] = target_count / count
+        else:
+            # Oversample
+            weights[labels == class_label] = target_count / count
+    
+    return weights
+
 def apply_sampling_method(labels, sampling_config):
     sampling_method = sampling_config['method']
     sampling_power = sampling_config.get('power', 0.5)  # Default to 0.5 if not specified
@@ -99,7 +114,9 @@ def apply_sampling_method(labels, sampling_config):
     elif sampling_method == 'mild_square_root':
         return get_square_root_sampling_weights(labels, mild=True, power=sampling_power)
     elif sampling_method == 'square_root':
-        return get_square_root_sampling_weights(labels, mild=False, power=0.5)
+        return get_square_root_sampling_weights(labels, mild=False, power=sampling_power)
+    elif sampling_method == 'balanced':
+        return get_balanced_sampling_weights(labels)
     else:
         print(f"Unknown sampling method: {sampling_method}. No sampling applied.")
         return np.ones_like(labels, dtype=np.float32)  # No sampling
