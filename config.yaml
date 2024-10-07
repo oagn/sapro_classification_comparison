@@ -8,12 +8,16 @@ data:
 models:
   MobileNetV3:
     img_size: 224
+    num_dense_layers: 128
   EfficientNetV2B0:
     img_size: 224
+    num_dense_layers: 256
   EfficientNetV2S:
     img_size: 300
+    num_dense_layers: 512
   ResNet50:
     img_size: 224
+    num_dense_layers: 128
 
 training:
   epochs: 25
