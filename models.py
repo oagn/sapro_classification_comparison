@@ -5,8 +5,15 @@ import keras_cv
 def create_model(model_name, num_classes, config):
     img_size = config['models'][model_name]['img_size']
     
-    if model_name == 'MobileNetV3':
+    if model_name == 'MobileNetV3L':
         base_model = keras.applications.MobileNetV3Large(
+            input_shape=(img_size, img_size, 3),
+            include_top=False,
+            weights='imagenet',
+            pooling='avg'
+        )
+    if model_name == 'MobileNetV3S':
+        base_model = keras.applications.MobileNetV3Small(
             input_shape=(img_size, img_size, 3),
             include_top=False,
             weights='imagenet',
