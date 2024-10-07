@@ -26,8 +26,8 @@ class F1Score(keras.metrics.Metric):
         self.precision.reset_state()
         self.recall.reset_state()
 
-def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_steps):
-    optimizer = keras.optimizers.Adam(learning_rate=config['training']['learning_rate'])
+def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_steps, learning_rate):
+    optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
     loss = FocalLoss(
         alpha=config['training'].get('focal_loss_alpha', 0.25),
         gamma=config['training']['focal_loss_gamma'],

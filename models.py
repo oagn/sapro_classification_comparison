@@ -53,17 +53,6 @@ def create_model(model_name, num_classes, config):
     model = keras.Model(inputs=base_model.input, outputs=outputs)
     return model
 
-def compile_model(model, learning_rate, focal_loss_gamma):
-    focal_loss = keras_cv.losses.BinaryFocalCrossentropy(
-        gamma=focal_loss_gamma,
-        from_logits=False
-    )
-    
-    model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
-        loss=focal_loss,
-        metrics=['accuracy', keras.metrics.F1Score(name='f1_score', average='macro')]
-    )
 
 def unfreeze_model(model, num_layers_to_unfreeze):
     # Make the whole model trainable
