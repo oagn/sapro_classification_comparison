@@ -2,6 +2,9 @@ import keras
 import tensorflow as tf
 import numpy as np
 import jax.numpy as jnp
+import jax
+from jax.experimental.mesh_utils import create_device_mesh
+from jax.sharding import Mesh
 
 class FocalLoss(keras.losses.Loss):
     def __init__(self, gamma=2.0, alpha=0.25):
@@ -52,24 +55,38 @@ def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_ste
     optimizer = keras.optimizers.Adam(learning_rate=config['training']['learning_rate'])
     loss = FocalLoss(gamma=config['training']['focal_loss_gamma'])
 
-    model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy', F1Score()])
+    # Set up JAX devices and mesh
+    devices = jax.devices()
+    mesh = Mesh(create_device_mesh((2,)), ('devices',))
+
+    # Compile the model with distributed strategy
+    with mesh:
+        model.compile(
+            optimizer=optimizer,
+            loss=loss,
+            metrics=['accuracy', F1Score()],
+            jit_compile=True,
+            xla_compile=True,
+        )
 
     class DebugCallback(keras.callbacks.Callback):
         def on_epoch_end(self, epoch, logs=None):
             print(f"Epoch {epoch+1} ended. Logs: {logs}")
 
-    history = model.fit(
-        x=train_ds,
-        steps_per_epoch=steps_per_epoch,
-        epochs=config['training']['epochs'],
-        validation_data=val_ds,
-        validation_steps=validation_steps,
-        callbacks=[
-            keras.callbacks.EarlyStopping(patience=5, restore_best_weights=True),
-            keras.callbacks.ReduceLROnPlateau(factor=0.1, patience=3),
-            MetricsLogger(),
-            DebugCallback()
-        ]
-    )
+    # Train the model with distributed strategy
+    with mesh:
+        history = model.fit(
+            x=train_ds,
+            steps_per_epoch=steps_per_epoch,
+            epochs=config['training']['epochs'],
+            validation_data=val_ds,
+            validation_steps=validation_steps,
+            callbacks=[
+                keras.callbacks.EarlyStopping(patience=5, restore_best_weights=True),
+                keras.callbacks.ReduceLROnPlateau(factor=0.1, patience=3),
+                MetricsLogger(),
+                DebugCallback()
+            ]
+        )
 
     return history
