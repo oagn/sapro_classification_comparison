@@ -4,8 +4,9 @@ os.environ["KERAS_BACKEND"] = "jax"
 import yaml
 import keras
 import jax
+import keras_cv
 from data_loader import load_data
-from models import create_model
+from models import create_model, unfreeze_model
 from train import train_model
 from evaluate import evaluate_model
 import matplotlib.pyplot as plt
@@ -46,18 +47,52 @@ def main():
         validation_steps = num_val_samples // config['data']['batch_size']
 
         model = create_model(model_name, num_classes=2, config=config)
-        history = train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_steps)
         
-        # Plot and save training history
-        plot_training_history(history, model_name)
+        # Define focal loss
+        focal_loss = keras_cv.losses.BinaryFocalCrossentropy(
+            gamma=config['training']['focal_loss_gamma'],
+            from_logits=False
+        )
+        
+        # Compile the model for initial training
+        model.compile(
+            optimizer=keras.optimizers.Adam(learning_rate=config['training']['learning_rate']),
+            loss=focal_loss,
+            metrics=['accuracy', keras.metrics.F1Score(name='f1_score', average='macro')]
+        )
+        
+        # Initial training with frozen base model
+        print("Initial training with frozen base model...")
+        history_frozen = train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_steps, epochs=config['training']['initial_epochs'])
+        
+        # Plot and save training history for frozen model
+        plot_training_history(history_frozen, f"{model_name}_frozen")
+        
+        # Unfreeze the top layers of the base model
+        print(f"Unfreezing top {config['models'][model_name]['unfreeze_layers']} layers of the model...")
+        model = unfreeze_model(model, config['models'][model_name]['unfreeze_layers'])
+        
+        # Recompile the model with a lower learning rate for fine-tuning
+        model.compile(
+            optimizer=keras.optimizers.Adam(learning_rate=config['training']['fine_tuning_lr']),
+            loss=focal_loss,
+            metrics=['accuracy', keras.metrics.F1Score(name='f1_score', average='macro')]
+        )
+        
+        # Continue training with partially unfrozen model
+        print("Continuing training with partially unfrozen model...")
+        history_unfrozen = train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_steps, epochs=config['training']['fine_tuning_epochs'])
+        
+        # Plot and save training history for unfrozen model
+        plot_training_history(history_unfrozen, f"{model_name}_unfrozen")
         
         print(f"Evaluating {model_name}...")
         eval_results = evaluate_model(model, test_ds)
         
         results[model_name] = eval_results
 
-        # Save the model
-        model.save(f"{model_name}_model.keras")
+        # Save the final model
+        model.save(f"{model_name}_model_final.keras")
 
     # Print summary of results
     print("\nSummary of Results:")

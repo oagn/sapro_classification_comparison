@@ -6,23 +6,34 @@ data:
   augmentation_magnitude: 0.6  # Adjust this value as needed
 
 models:
-  MobileNetV3:
+  MobileNetV3L:
     img_size: 224
     num_dense_layers: 128
+    unfreeze_layers: 37
+  MobileNetV3S:
+    img_size: 224
+    num_dense_layers: 128
+    unfreeze_layers: 52
   EfficientNetV2B0:
     img_size: 224
     num_dense_layers: 256
+    unfreeze_layers: 198
   EfficientNetV2S:
     img_size: 300
     num_dense_layers: 512
+    unfreeze_layers: 363
   ResNet50:
     img_size: 224
     num_dense_layers: 128
+    unfreeze_layers: 36
 
 training:
-  epochs: 25
+  initial_epochs: 15
+  fine_tuning_epochs: 10
   learning_rate: 0.001
+  fine_tuning_lr: 0.0001
   focal_loss_gamma: 2.0
+
 sampling:
   method: minority_oversampling
   power: 0.3
