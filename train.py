@@ -1,28 +1,9 @@
 import keras
-import tensorflow as tf
-import numpy as np
 import jax.numpy as jnp
 import jax
 from jax.experimental.mesh_utils import create_device_mesh
 from jax.sharding import Mesh
-
-class FocalLoss(keras.losses.Loss):
-    def __init__(self, gamma=2.0, alpha=0.25):
-        super().__init__()
-        self.gamma = gamma
-        self.alpha = alpha
-
-    def call(self, y_true, y_pred):
-        ce_loss = keras.ops.categorical_crossentropy(y_true, y_pred, from_logits=False)
-        pt = keras.ops.sum(y_true * y_pred, axis=-1)
-        focal_loss = keras.ops.power(1. - pt, self.gamma) * ce_loss
-        
-        # Modify alpha_factor calculation
-        alpha_factor = self.alpha * y_true + (1 - self.alpha) * (1 - y_true)
-        alpha_factor = keras.ops.sum(alpha_factor, axis=-1)
-        
-        modulated_loss = alpha_factor * focal_loss
-        return keras.ops.mean(modulated_loss)
+from keras_cv.losses import FocalLoss
 
 class F1Score(keras.metrics.Metric):
     def __init__(self, name='f1_score', **kwargs):
@@ -53,20 +34,34 @@ class MetricsLogger(keras.callbacks.Callback):
 
 def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_steps):
     optimizer = keras.optimizers.Adam(learning_rate=config['training']['learning_rate'])
-    loss = FocalLoss(gamma=config['training']['focal_loss_gamma'])
+    loss = FocalLoss(
+        alpha=config['training'].get('focal_loss_alpha', 0.25),
+        gamma=config['training']['focal_loss_gamma'],
+        from_logits=False
+    )
 
     # Set up JAX devices and mesh
-    devices = jax.devices()
-    mesh = Mesh(create_device_mesh((2,)), ('devices',))
+    devices = jax.devices("gpu")
+    n_devices = len(devices)
+    
+    if n_devices == 0:
+        print("No GPU devices found. Using CPU.")
+        devices = jax.devices("cpu")
+        n_devices = len(devices)
+    
+    print(f"Using {n_devices} device(s)")
+    
+    if n_devices > 1:
+        mesh = Mesh(create_device_mesh((n_devices,)), ('devices',))
+    else:
+        mesh = None
 
-    # Compile the model with distributed strategy
-    with mesh:
-        model.compile(
-            optimizer=optimizer,
-            loss=loss,
-            metrics=['accuracy', F1Score()],
-            jit_compile=True,
-        )
+    # Compile the model
+    if mesh:
+        with mesh:
+            model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy', F1Score()], jit_compile=True)
+    else:
+        model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy', F1Score()], jit_compile=True)
 
     class DebugCallback(keras.callbacks.Callback):
         def on_epoch_end(self, epoch, logs=None):
