@@ -6,6 +6,7 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 import pandas as pd
 from pathlib import Path
 import os
+from collections import Counter
 
 
 def create_fixed(ds_path):
@@ -103,6 +104,34 @@ def apply_sampling_method(labels, sampling_config):
         print(f"Unknown sampling method: {sampling_method}. No sampling applied.")
         return np.ones_like(labels, dtype=np.float32)  # No sampling
 
+def create_counting_dataset(in_df, img_size, batch_size, sample_weights=None):
+    in_path = in_df['File']
+    label_encoder = LabelEncoder()
+    in_class = label_encoder.fit_transform(in_df['Label'].values)
+
+    in_class = in_class.reshape(len(in_class), 1)
+    one_hot_encoder = OneHotEncoder(sparse_output=False)
+    in_class = one_hot_encoder.fit_transform(in_class)
+    
+    if sample_weights is None:
+        sample_weights = np.ones(len(in_df), dtype=np.float32)
+    
+    ds = tf.data.Dataset.from_tensor_slices((in_class, sample_weights))
+    ds = ds.batch(batch_size)
+    
+    return ds
+
+def count_classes_from_dataset(dataset):
+    class_counts = Counter()
+    
+    for labels, weights in dataset:
+        labels = tf.argmax(labels, axis=1)  # Convert one-hot to class indices
+        weights = tf.round(weights)  # Round weights to nearest integer
+        for label, weight in zip(labels.numpy(), weights.numpy()):
+            class_counts[label] += int(weight)
+    
+    return class_counts
+
 def load_data(config, model_name):
     img_size = config['models'][model_name]['img_size']
     batch_size = config['data']['batch_size']
@@ -123,6 +152,15 @@ def load_data(config, model_name):
     
     sample_weights = apply_sampling_method(train_labels, config['sampling'])
     
+    # Create dataset for counting
+    counting_ds = create_counting_dataset(train_df, img_size, batch_size, sample_weights)
+    
+    # Count classes
+    class_counts = count_classes_from_dataset(counting_ds)
+    print("Class distribution in training set after sampling:")
+    for class_label, count in class_counts.items():
+        print(f"Class {class_label}: {count} samples")
+    
     # Create training dataset with sampling weights
     train_ds = create_tensorset(train_df, img_size, batch_size, augmentation_magnitude, 
                                 ds_name="train", sample_weights=sample_weights)
@@ -135,6 +173,7 @@ def load_data(config, model_name):
     test_df = create_fixed(config['data']['test_dir'])
     test_ds = create_tensorset(test_df, img_size, batch_size, 0, ds_name="test")
 
-    print(f"Loaded {len(train_df)} training samples, {len(val_df)} validation samples, and {len(test_df)} test samples")
+    num_train_samples = sum(class_counts.values())
+    print(f"Loaded {num_train_samples} training samples, {len(val_df)} validation samples, and {len(test_df)} test samples")
 
     return train_ds, val_ds, test_ds, len(train_df), len(val_df)
