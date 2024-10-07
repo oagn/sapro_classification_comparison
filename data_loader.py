@@ -28,7 +28,7 @@ def create_fixed(ds_path):
 
 # This function takes a pandas df from create_dataframe and converts to a TensorFlow dataset
 def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sample_weights=None):
-    def load(file_path):
+    def load(file_path, img_size):
         img = tf.io.read_file(file_path)
         img = tf.image.decode_png(img, channels=3)
         img = tf.image.convert_image_dtype(img, tf.uint8)
@@ -48,51 +48,55 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
 
     if ds_name == "train":
         if sample_weights is None:
-            raise ValueError("Sample weights must be provided for training data")
-        
-        # Implement weighted sampling manually
-        sample_weights = sample_weights / np.sum(sample_weights)
-        choice_indices = np.random.choice(len(in_df), size=len(in_df), p=sample_weights)
-        
-        in_path = tf.gather(in_path, choice_indices)
-        in_class = tf.gather(in_class, choice_indices)
-        sample_weights = tf.gather(sample_weights, choice_indices)
+            sample_weights = np.ones(len(in_df), dtype=np.float32)
         
         ds = tf.data.Dataset.from_tensor_slices((in_path, in_class, sample_weights))
         
         ds = (ds
-            .map(lambda img_path, img_class, weight: (load(img_path), img_class, weight), 
+            .map(lambda img_path, img_class, weight: (load(img_path, img_size), img_class, weight), 
                  num_parallel_calls=tf.data.AUTOTUNE)
             .batch(batch_size)
             .map(lambda x, y, w: (rand_aug(tf.cast(x, tf.uint8)), y, w), 
                  num_parallel_calls=tf.data.AUTOTUNE)
-            .repeat()  # Add this line
+            .repeat()
             .prefetch(tf.data.AUTOTUNE)
         )
-    elif ds_name == "validation":
+    else:  # validation or test
         ds = (tf.data.Dataset.from_tensor_slices((in_path, in_class))
-            .map(lambda img_path, img_class: (load(img_path), img_class), 
+            .map(lambda img_path, img_class: (load(img_path, img_size), img_class), 
                  num_parallel_calls=tf.data.AUTOTUNE)
             .batch(batch_size)
-            .repeat()  # Add this line
+            .repeat()
             .prefetch(tf.data.AUTOTUNE)
         )
-    else:  # test
-        ds = (tf.data.Dataset.from_tensor_slices((in_path, in_class))
-            .map(lambda img_path, img_class: (load(img_path), img_class), 
-                 num_parallel_calls=tf.data.AUTOTUNE)
-            .batch(batch_size)
-            .repeat()  # Add this line
-            .prefetch(tf.data.AUTOTUNE)
-        )  
     return ds
 
 
-def get_mild_square_root_sampler(labels, power=0.3):
+def get_minority_oversampling_weights(labels):
     class_counts = np.bincount(labels)
-    class_weights = 1. / (class_counts ** power)
-    sample_weights = class_weights[labels]
-    return sample_weights
+    minority_class = np.argmin(class_counts)
+    weights = np.ones_like(labels, dtype=np.float32)
+    weights[labels == minority_class] = class_counts.max() / class_counts[minority_class]
+    return weights
+
+def get_square_root_sampling_weights(labels, mild=False):
+    class_counts = np.bincount(labels)
+    if mild:
+        weights = np.sqrt(class_counts.max() / class_counts)
+    else:
+        weights = np.sqrt(class_counts)
+    return weights[labels]
+
+def apply_sampling_method(labels, config):
+    sampling_method = config['sampling']['method']
+    if sampling_method == 'minority_oversampling':
+        return get_minority_oversampling_weights(labels)
+    elif sampling_method == 'mild_square_root':
+        return get_square_root_sampling_weights(labels, mild=True)
+    elif sampling_method == 'square_root':
+        return get_square_root_sampling_weights(labels, mild=False)
+    else:
+        return np.ones_like(labels, dtype=np.float32)  # No sampling
 
 def load_data(config, model_name):
     img_size = config['models'][model_name]['img_size']
@@ -105,9 +109,9 @@ def load_data(config, model_name):
     # Calculate sampling weights
     label_encoder = LabelEncoder()
     train_labels = label_encoder.fit_transform(train_df['Label'].values)
-    sample_weights = get_mild_square_root_sampler(train_labels, config['sampling']['power'])
+    sample_weights = apply_sampling_method(train_labels, config['sampling']['method'])
     
-    # Create training dataset with weighted sampling
+    # Create training dataset with sampling weights
     train_ds = create_tensorset(train_df, img_size, batch_size, augmentation_magnitude, 
                                 ds_name="train", sample_weights=sample_weights)
 
