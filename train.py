@@ -26,12 +26,6 @@ class F1Score(keras.metrics.Metric):
         self.precision.reset_state()
         self.recall.reset_state()
 
-class MetricsLogger(keras.callbacks.Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        logs = logs or {}
-        for metric, value in logs.items():
-            print(f"Epoch {epoch+1}: {metric} = {value:.4f}")
-
 def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_steps):
     optimizer = keras.optimizers.Adam(learning_rate=config['training']['learning_rate'])
     loss = FocalLoss(
@@ -78,7 +72,6 @@ def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_ste
             callbacks=[
                 keras.callbacks.EarlyStopping(patience=5, restore_best_weights=True),
                 keras.callbacks.ReduceLROnPlateau(factor=0.1, patience=3),
-                MetricsLogger(),
                 DebugCallback()
             ]
         )
