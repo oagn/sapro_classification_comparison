@@ -29,18 +29,6 @@ def create_fixed(ds_path):
     return ds_df
 
 
-# This function takes a pandas df from create_dataframe and converts to a TensorFlow dataset
-import tensorflow as tf
-import keras_cv
-import keras
-import numpy as np
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-import pandas as pd
-from pathlib import Path
-import os
-from collections import Counter
-from keras.applications import resnet
-
 def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sample_weights=None, model_name=None):
     def load(file_path, img_size):
         img = tf.io.read_file(file_path)
@@ -56,7 +44,7 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
             img = img[..., ::-1]  # RGB to BGR
             img -= mean
             return img
-        elif model_name in ['MobileNetV3', 'EfficientNetV2B0', 'EfficientNetV2S']:
+        elif model_name in ['MobileNetV3L', 'MobileNetV3S', 'EfficientNetV2B0', 'EfficientNetV2S']:
             return img  # No preprocessing needed, it's built into the model
         else:
             raise ValueError(f"Unknown model name: {model_name}")
