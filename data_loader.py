@@ -26,6 +26,8 @@ def create_fixed(ds_path):
     ds_labels = pd.Series(ds_labels, name='Label')
     # Concatenating...
     ds_df = pd.concat([ds_filepaths, ds_labels], axis=1)
+    ds_df = ds_df.sample(frac=1, random_state=42).reset_index(drop=True)
+    ds_df = ds_df.groupby('Label').sample(n=350, replace=True)
     return ds_df
 
 
@@ -75,7 +77,7 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
             .prefetch(tf.data.AUTOTUNE)
         )
     else:
-        # Don't include sample weights for validation and test sets
+        # Don't include sample weights for validation and test sets, or when weights are not used
         ds = tf.data.Dataset.from_tensor_slices((in_path, in_class))
         ds = (ds
             .map(lambda img_path, img_class: (load(img_path, img_size), img_class), 
@@ -83,8 +85,12 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
             .batch(batch_size)
             .map(lambda x, y: (preprocess(x, model_name), y),
                  num_parallel_calls=tf.data.AUTOTUNE)
-            .prefetch(tf.data.AUTOTUNE)
         )
+        if ds_name == "train":
+            ds = ds.map(lambda x, y: (rand_aug(tf.cast(x, tf.uint8)), y), 
+                        num_parallel_calls=tf.data.AUTOTUNE)
+            ds = ds.repeat()
+        ds = ds.prefetch(tf.data.AUTOTUNE)
 
     return ds
 
@@ -176,25 +182,33 @@ def load_data(config, model_name):
     # Load training data
     train_df = create_fixed(config['data']['train_dir'])
     
-    # Calculate sampling weights
-    label_encoder = LabelEncoder()
-    train_labels = label_encoder.fit_transform(train_df['Label'].values)
+    # Calculate sampling weights if enabled
+    use_weights = config['sampling'].get('use_weights', True)
+    if use_weights:
+        label_encoder = LabelEncoder()
+        train_labels = label_encoder.fit_transform(train_df['Label'].values)
+        
+        print("Sampling configuration:")
+        print(config['sampling'])
+        
+        sample_weights = apply_sampling_method(train_labels, config['sampling'])
+        
+        # Create dataset for counting
+        counting_ds = create_counting_dataset(train_df, img_size, batch_size, sample_weights)
+        
+        # Count classes
+        class_counts = count_classes_from_dataset(counting_ds)
+        print("Class distribution in training set after sampling:")
+        for class_label, count in class_counts.items():
+            print(f"Class {class_label}: {count} samples")
+    else:
+        sample_weights = None
+        class_counts = train_df['Label'].value_counts().to_dict()
+        print("Class distribution in training set (no sampling):")
+        for class_label, count in class_counts.items():
+            print(f"Class {class_label}: {count} samples")
     
-    print("Sampling configuration:")
-    print(config['sampling'])
-    
-    sample_weights = apply_sampling_method(train_labels, config['sampling'])
-    
-    # Create dataset for counting
-    counting_ds = create_counting_dataset(train_df, img_size, batch_size, sample_weights)
-    
-    # Count classes
-    class_counts = count_classes_from_dataset(counting_ds)
-    print("Class distribution in training set after sampling:")
-    for class_label, count in class_counts.items():
-        print(f"Class {class_label}: {count} samples")
-    
-    # Create training dataset with sampling weights
+    # Create training dataset with or without sampling weights
     train_ds = create_tensorset(train_df, img_size, batch_size, augmentation_magnitude, 
                                 ds_name="train", sample_weights=sample_weights, model_name=model_name)
 
