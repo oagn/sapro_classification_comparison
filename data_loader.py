@@ -86,9 +86,10 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
             .batch(batch_size)
             .map(lambda x, y: (preprocess(x, model_name), y),
                  num_parallel_calls=tf.data.AUTOTUNE)
-            .repeat()
             .prefetch(tf.data.AUTOTUNE)
         )
+        # Note: No .repeat() for validation or test datasets
+
     return ds
 
 
