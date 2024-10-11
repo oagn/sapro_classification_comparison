@@ -2,9 +2,6 @@ import os
 os.environ["KERAS_BACKEND"] = "jax"
 
 import yaml
-import keras
-import jax
-import keras_cv
 from data_loader import load_data
 from models import create_model, unfreeze_model
 from train import train_model

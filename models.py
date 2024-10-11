@@ -1,8 +1,8 @@
 import keras
 from keras import layers
-import keras_cv
 
 def create_model(model_name, num_classes, config):
+    print(f"Creating model: {model_name}")
     img_size = config['models'][model_name]['img_size']
     
     if model_name == 'MobileNetV3L':
@@ -12,7 +12,7 @@ def create_model(model_name, num_classes, config):
             weights='imagenet',
             pooling='avg'
         )
-    if model_name == 'MobileNetV3S':
+    elif model_name == 'MobileNetV3S':
         base_model = keras.applications.MobileNetV3Small(
             input_shape=(img_size, img_size, 3),
             include_top=False,
