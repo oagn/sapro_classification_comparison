@@ -1,14 +1,19 @@
 import numpy as np
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
+import tensorflow as tf
 
 def evaluate_model(model, test_ds):
     y_pred = []
     y_true = []
 
     for images, labels in test_ds:
-        predictions = model.predict(images)
+        predictions = model.predict(images, verbose=0)
         y_pred.extend(np.argmax(predictions, axis=1))
         y_true.extend(np.argmax(labels, axis=1))
+
+    # Convert lists to numpy arrays for faster processing
+    y_pred = np.array(y_pred)
+    y_true = np.array(y_true)
 
     # Print classification report (includes precision, recall, f1-score for each class)
     print("Classification Report:")

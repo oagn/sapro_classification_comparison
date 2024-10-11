@@ -28,12 +28,12 @@ models:
     unfreeze_layers: 36
 
 training:
-  initial_epochs: 15
-  fine_tuning_epochs: 10
-  learning_rate: 0.001
+  initial_epochs: 25
+  fine_tuning_epochs: 50
+  learning_rate: 0.01
   fine_tuning_lr: 0.0001
   focal_loss_gamma: 2.0
 
 sampling:
-  method: minority_oversampling
+  method: square_root
   power: 0.3
