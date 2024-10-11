@@ -90,7 +90,6 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
                  num_parallel_calls=tf.data.AUTOTUNE)
             .map(lambda x, y, w: (preprocess(x, model_name), y, w),
                  num_parallel_calls=tf.data.AUTOTUNE)
-            .repeat()
             .prefetch(tf.data.AUTOTUNE)
         )
     else:
@@ -106,7 +105,6 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
         if ds_name == "train":
             ds = ds.map(lambda x, y: (rand_aug(tf.cast(x, tf.uint8)), y), 
                         num_parallel_calls=tf.data.AUTOTUNE)
-            ds = ds.repeat()
         ds = ds.prefetch(tf.data.AUTOTUNE)
 
     return ds
