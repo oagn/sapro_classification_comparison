@@ -11,7 +11,7 @@ from collections import Counter
 from keras.applications import resnet
 
 
-def create_fixed(ds_path):
+def create_fixed_train(ds_path):
     # Selecting folder paths in dataset
     dir_ = Path(ds_path)
     ds_filepaths = list(dir_.glob(r'**/*.jpg'))
@@ -28,6 +28,23 @@ def create_fixed(ds_path):
     ds_df = pd.concat([ds_filepaths, ds_labels], axis=1)
     ds_df = ds_df.sample(frac=1, random_state=42).reset_index(drop=True)
     ds_df = ds_df.groupby('Label').sample(n=350, replace=True)
+    return ds_df
+
+def create_fixed(ds_path):
+    # Selecting folder paths in dataset
+    dir_ = Path(ds_path)
+    ds_filepaths = list(dir_.glob(r'**/*.jpg'))
+    ds_filepaths.extend(list(dir_.glob(r'**/*.JPG')))
+    ds_filepaths.extend(list(dir_.glob(r'**/*.jpeg')))
+    ds_filepaths.extend(list(dir_.glob(r'**/*.png')))
+    ds_filepaths.extend(list(dir_.glob(r'**/*.PNG')))
+    # Mapping labels...
+    ds_labels = list(map(lambda x: os.path.split(os.path.split(x)[0])[1], ds_filepaths))
+    # Data set paths & labels
+    ds_filepaths = pd.Series(ds_filepaths, name='File').astype(str)
+    ds_labels = pd.Series(ds_labels, name='Label')
+    # Concatenating...
+    ds_df = pd.concat([ds_filepaths, ds_labels], axis=1)
     return ds_df
 
 
@@ -180,7 +197,7 @@ def load_data(config, model_name):
     print(f"Image size: {img_size}, Batch size: {batch_size}, Augmentation magnitude: {augmentation_magnitude}")
 
     # Load training data
-    train_df = create_fixed(config['data']['train_dir'])
+    train_df = create_fixed_train(config['data']['train_dir'])
     
     # Calculate sampling weights if enabled
     use_weights = config['sampling'].get('use_weights', True)
