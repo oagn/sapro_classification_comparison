@@ -40,7 +40,18 @@ def main():
     for model_name in config['models']:
         print(f"Training {model_name}...")
         train_ds, val_ds, test_ds, num_train_samples, num_val_samples = load_data(config, model_name)
+        print(f"Number of training samples: {num_train_samples}")
+        print(f"Number of validation samples: {num_val_samples}")
+
+        # Check a batch from each dataset
+        for x, y in train_ds.take(1):
+            print(f"Training batch shape: {x.shape}, {y.shape}")
+        for x, y in val_ds.take(1):
+            print(f"Validation batch shape: {x.shape}, {y.shape}")
+
         steps_per_epoch = num_train_samples // config['data']['batch_size']
+        if steps_per_epoch == 0:
+            steps_per_epoch = 1  # Ensure at least one step per epoch
         validation_steps = num_val_samples // config['data']['batch_size']
 
         model = create_model(model_name, num_classes=2, config=config)

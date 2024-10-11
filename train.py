@@ -20,7 +20,10 @@ class F1Score(keras.metrics.Metric):
     def result(self):
         p = self.precision.result()
         r = self.recall.result()
-        return 2 * ((p * r) / (p + r + jnp.finfo(jnp.float32).eps))
+        condition = keras.ops.eq(p + r, 0)
+        return keras.ops.switch(condition, 
+                                lambda: 0.0, 
+                                lambda: 2 * ((p * r) / (p + r + keras.config.epsilon())))
 
     def reset_state(self):
         self.precision.reset_state()
@@ -70,7 +73,12 @@ def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_ste
             validation_data=val_ds,
             validation_steps=validation_steps,
             callbacks=[
-                keras.callbacks.EarlyStopping(patience=5, restore_best_weights=True),
+                keras.callbacks.EarlyStopping(
+                    monitor='val_loss',
+                    patience=10,  # Increase patience
+                    restore_best_weights=True,
+                    mode='min'
+                ),
                 keras.callbacks.ReduceLROnPlateau(factor=0.1, patience=3),
                 DebugCallback()
             ]
