@@ -7,8 +7,9 @@ from models import create_model, unfreeze_model
 from train import train_model
 from evaluate import evaluate_model
 import matplotlib.pyplot as plt
+import datetime
 
-def plot_training_history(history, model_name):
+def plot_training_history(history, model_name, output_dir):
     plt.figure(figsize=(12, 4))
     
     plt.subplot(1, 2, 1)
@@ -28,12 +29,15 @@ def plot_training_history(history, model_name):
     plt.legend()
     
     plt.tight_layout()
-    plt.savefig(f'{model_name}_training_history.png')
+    plt.savefig(os.path.join(output_dir, f'{model_name}_training_history.png'))
     plt.close()
 
 def main():
     with open('config.yaml', 'r') as f:
         config = yaml.safe_load(f)
+
+    output_dir = config['data']['output_dir']
+    os.makedirs(output_dir, exist_ok=True)
 
     results = {}
 
@@ -70,7 +74,7 @@ def main():
         )
         
         # Plot and save training history for frozen model
-        plot_training_history(history_frozen, f"{model_name}_frozen")
+        plot_training_history(history_frozen, f"{model_name}_frozen", output_dir)
         
         # Unfreeze the top layers of the base model
         print(f"Unfreezing top {config['models'][model_name]['unfreeze_layers']} layers of the model...")
@@ -89,7 +93,7 @@ def main():
         )
         
         # Plot and save training history for unfrozen model
-        plot_training_history(history_unfrozen, f"{model_name}_unfrozen")
+        plot_training_history(history_unfrozen, f"{model_name}_unfrozen", output_dir)
         
         print(f"Evaluating {model_name}...")
         eval_results = evaluate_model(model, test_ds)
@@ -97,16 +101,24 @@ def main():
         results[model_name] = eval_results
 
         # Save the final model
-        model.save(f"{model_name}_model_final.keras")
+        model.save(os.path.join(output_dir, f"{model_name}_model_final.keras"))
 
-    # Print summary of results
-    print("\nSummary of Results:")
+    # Print and save summary of results
+    summary = "\nSummary of Results:\n"
     for model_name, eval_results in results.items():
-        print(f"\n{model_name}:")
-        print(f"  Macro F1 score: {eval_results['macro_f1']:.4f}")
-        print(f"  Weighted F1 score: {eval_results['weighted_f1']:.4f}")
+        summary += f"\n{model_name}:\n"
+        summary += f"  Macro F1 score: {eval_results['macro_f1']:.4f}\n"
+        summary += f"  Weighted F1 score: {eval_results['weighted_f1']:.4f}\n"
         for i, f1 in enumerate(eval_results['f1_scores']):
-            print(f"  F1 score for class {i}: {f1:.4f}")
+            summary += f"  F1 score for class {i}: {f1:.4f}\n"
+    
+    print(summary)
+    
+    # Save summary to file with model name
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    summary_filename = f'results_summary_{model_name}_{timestamp}.txt'
+    with open(os.path.join(output_dir, summary_filename), 'w') as f:
+        f.write(summary)
 
 if __name__ == "__main__":
     main()

@@ -1,4 +1,5 @@
 data:
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison'
   train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_both_classes_EA_usergroup/train'
   val_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_both_classes_EA_usergroup/val'
   test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_both_classes_EA_usergroup/test'
@@ -35,5 +36,5 @@ training:
   focal_loss_gamma: 2.0
 
 sampling:
-  method: square_root
+  method: mild_square_root
   power: 0.3
