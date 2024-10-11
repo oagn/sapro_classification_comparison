@@ -48,10 +48,29 @@ def main():
         print(f"Number of validation samples: {num_val_samples}")
 
         # Check a batch from each dataset
-        for x, y in train_ds.take(1):
-            print(f"Training batch shape: {x.shape}, {y.shape}")
-        for x, y in val_ds.take(1):
-            print(f"Validation batch shape: {x.shape}, {y.shape}")
+        for batch in train_ds.take(1):
+            if len(batch) == 2:
+                x, y = batch
+                print(f"Training batch shape: features {x.shape}, labels {y.shape}")
+            elif len(batch) == 3:
+                x, y, w = batch
+                print(f"Training batch shape: features {x.shape}, labels {y.shape}, weights {w.shape}")
+            else:
+                print(f"Unexpected number of elements in training batch: {len(batch)}")
+                for i, element in enumerate(batch):
+                    print(f"Element {i} shape: {element.shape}")
+
+        for batch in val_ds.take(1):
+            if len(batch) == 2:
+                x, y = batch
+                print(f"Validation batch shape: features {x.shape}, labels {y.shape}")
+            elif len(batch) == 3:
+                x, y, w = batch
+                print(f"Validation batch shape: features {x.shape}, labels {y.shape}, weights {w.shape}")
+            else:
+                print(f"Unexpected number of elements in validation batch: {len(batch)}")
+                for i, element in enumerate(batch):
+                    print(f"Element {i} shape: {element.shape}")
 
         steps_per_epoch = num_train_samples // config['data']['batch_size']
         if steps_per_epoch == 0:

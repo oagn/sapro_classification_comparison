@@ -60,14 +60,9 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
     rand_aug = keras_cv.layers.RandAugment(
         value_range=(0, 255), augmentations_per_image=3, magnitude=magnitude)
 
-    if ds_name == "train":
-        if sample_weights is None:
-            sample_weights = tf.ones(len(in_df), dtype=tf.float32)
-        else:
-            sample_weights = tf.constant(sample_weights, dtype=tf.float32)
-        
+    if ds_name == "train" and sample_weights is not None:
+        # Include sample weights in the dataset
         ds = tf.data.Dataset.from_tensor_slices((in_path, in_class, sample_weights))
-        
         ds = (ds
             .map(lambda img_path, img_class, weight: (load(img_path, img_size), img_class, weight), 
                  num_parallel_calls=tf.data.AUTOTUNE)
@@ -79,8 +74,10 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
             .repeat()
             .prefetch(tf.data.AUTOTUNE)
         )
-    else:  # validation or test
-        ds = (tf.data.Dataset.from_tensor_slices((in_path, in_class))
+    else:
+        # Don't include sample weights for validation and test sets
+        ds = tf.data.Dataset.from_tensor_slices((in_path, in_class))
+        ds = (ds
             .map(lambda img_path, img_class: (load(img_path, img_size), img_class), 
                  num_parallel_calls=tf.data.AUTOTUNE)
             .batch(batch_size)
@@ -88,7 +85,6 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
                  num_parallel_calls=tf.data.AUTOTUNE)
             .prefetch(tf.data.AUTOTUNE)
         )
-        # Note: No .repeat() for validation or test datasets
 
     return ds
 
@@ -213,4 +209,4 @@ def load_data(config, model_name):
     num_train_samples = sum(class_counts.values())
     print(f"Loaded {num_train_samples} training samples, {len(val_df)} validation samples, and {len(test_df)} test samples")
 
-    return train_ds, val_ds, test_ds, len(train_df), len(val_df)
+    return train_ds, val_ds, test_ds, num_train_samples, len(val_df)
