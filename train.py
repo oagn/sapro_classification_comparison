@@ -20,10 +20,16 @@ class F1Score(keras.metrics.Metric):
     def result(self):
         p = self.precision.result()
         r = self.recall.result()
-        condition = keras.ops.eq(p + r, 0)
-        return keras.ops.switch(condition, 
-                                lambda: 0.0, 
-                                lambda: 2 * ((p * r) / (p + r + keras.config.epsilon())))
+        
+        # Use keras.ops.equal instead of keras.ops.eq
+        condition = keras.ops.equal(p + r, 0)
+        
+        # Use a conditional instead of keras.ops.switch
+        return keras.ops.where(
+            condition,
+            keras.ops.cast(0.0, p.dtype),
+            2 * ((p * r) / (p + r + keras.config.epsilon()))
+        )
 
     def reset_state(self):
         self.precision.reset_state()
