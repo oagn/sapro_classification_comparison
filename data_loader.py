@@ -11,7 +11,7 @@ from collections import Counter
 from keras.applications import resnet
 
 
-def create_fixed_train(ds_path):
+def create_fixed_train(ds_path, samples_per_class=None):
     # Selecting folder paths in dataset
     dir_ = Path(ds_path)
     ds_filepaths = list(dir_.glob(r'**/*.jpg'))
@@ -27,7 +27,8 @@ def create_fixed_train(ds_path):
     # Concatenating...
     ds_df = pd.concat([ds_filepaths, ds_labels], axis=1)
     ds_df = ds_df.sample(frac=1, random_state=42).reset_index(drop=True)
-    ds_df = ds_df.groupby('Label').sample(n=350, replace=True)
+    if samples_per_class is not None:
+        ds_df = ds_df.groupby('Label').sample(n=samples_per_class, replace=True)
     return ds_df
 
 def create_fixed(ds_path):
@@ -207,6 +208,7 @@ def load_data(config, model_name):
     img_size = config['models'][model_name]['img_size']
     batch_size = config['data']['batch_size']
     augmentation_magnitude = config['data'].get('augmentation_magnitude', 0.3)
+    samples_per_class = config['data'].get('samples_per_class', None)
 
     print(f"Loading data for model: {model_name}")
     print(f"Image size: {img_size}, Batch size: {batch_size}, Augmentation magnitude: {augmentation_magnitude}")
