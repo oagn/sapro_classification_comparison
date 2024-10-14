@@ -33,7 +33,7 @@ def plot_training_history(history, model_name, output_dir):
     plt.close()
 
 def main():
-    with open('config.yaml', 'r') as f:
+    with open('/home/c.c1767198/workarea/sapro_classification_comparison/config.yaml', 'r') as f:
         config = yaml.safe_load(f)
 
     output_dir = config['data']['output_dir']
