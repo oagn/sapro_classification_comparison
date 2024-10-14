@@ -7,7 +7,7 @@ from keras_cv.losses import FocalLoss
 from data_loader import create_fixed_train, create_tensorset
 
 
-def train_model(model, train_ds, val_ds, config, learning_rate, epochs, is_fine_tuning=False):
+def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size=224,is_fine_tuning=False):
 
     class NewDatasetCallback(keras.callbacks.Callback):
         def __init__(self, config):
@@ -21,7 +21,7 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, is_fine_
                 new_train_df = create_fixed_train(self.config['data']['train_dir'], samples_per_class)
                 new_train_ds = create_tensorset(
                     new_train_df, 
-                    self.config['models'][self.config['model_name']]['img_size'],
+                    image_size,
                     self.config['data']['batch_size'],
                     self.config['data'].get('augmentation_magnitude', 0.3),
                     ds_name="train",

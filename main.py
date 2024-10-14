@@ -88,6 +88,7 @@ def main():
             config, 
             learning_rate=config['training']['learning_rate'],
             epochs=config['training']['initial_epochs'],
+            image_size=config['models'][model_name]['img_size'],
             is_fine_tuning=False
         )
         
@@ -106,6 +107,7 @@ def main():
             config, 
             learning_rate=config['training']['fine_tuning_lr'],
             epochs=config['training']['fine_tuning_epochs'],
+            image_size=config['models'][model_name]['img_size'],
             is_fine_tuning=True
         )
         
