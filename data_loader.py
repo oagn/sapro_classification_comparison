@@ -110,7 +110,7 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
 
     if ds_name == "train":
         ds = ds.shuffle(buffer_size=len(in_df), reshuffle_each_iteration=True)
-        ds = ds.repeat()
+        #ds = ds.repeat()
 
     return ds
 
