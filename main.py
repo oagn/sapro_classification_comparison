@@ -116,6 +116,10 @@ def main():
         
         print(f"Evaluating {model_name}...")
         eval_results = evaluate_model(model, test_ds)
+        eval_results = evaluate_model(model, config['data']['test_dir'], ['healthy','sapro'], 
+                                      batch_size=config['data']['batch_size'], 
+                                      img_size=config['models'][model_name]['img_size'], 
+                                      output_path=config['data']['output_dir'])
         
         results[model_name] = eval_results
 
