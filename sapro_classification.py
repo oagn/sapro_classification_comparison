@@ -3,9 +3,6 @@ os.environ["KERAS_BACKEND"] = "jax"
 
 import yaml
 from data_loader import load_data
-from models import create_model, unfreeze_model
-from train import train_model
-from evaluate import evaluate_model
 import matplotlib.pyplot as plt
 import datetime
 
@@ -35,6 +32,10 @@ def plot_training_history(history, model_name, output_dir):
 def main():
     with open('/home/c.c1767198/workarea/sapro_classification_comparison/config.yaml', 'r') as f:
         config = yaml.safe_load(f)
+
+    from models import create_model, unfreeze_model
+    from train import train_model
+    from evaluate import evaluate_model
 
     output_dir = config['data']['output_dir']
     os.makedirs(output_dir, exist_ok=True)
