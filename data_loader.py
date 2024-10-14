@@ -208,7 +208,7 @@ def load_data(config, model_name):
     img_size = config['models'][model_name]['img_size']
     batch_size = config['data']['batch_size']
     augmentation_magnitude = config['data'].get('augmentation_magnitude', 0.3)
-    samples_per_class = config['data'].get('samples_per_class', None)
+    samples_per_class = config['sampling'].get('samples_per_class', None)
 
     print(f"Loading data for model: {model_name}")
     print(f"Image size: {img_size}, Batch size: {batch_size}, Augmentation magnitude: {augmentation_magnitude}")
