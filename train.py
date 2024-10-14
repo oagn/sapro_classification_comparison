@@ -47,7 +47,7 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs):
             x=train_ds,
             epochs=epochs,  # Use the epochs parameter here
             validation_data=val_ds,
-            validation_steps=validation_steps,            callbacks=[
+            callbacks=[
                 keras.callbacks.EarlyStopping(
                     monitor='val_loss',
                     patience=5,  # Increase patience
