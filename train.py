@@ -5,10 +5,9 @@ from jax.experimental.mesh_utils import create_device_mesh
 from jax.sharding import Mesh
 from keras_cv.losses import FocalLoss
 
-def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_steps, learning_rate, epochs):
+def train_model(model, train_ds, val_ds, config, learning_rate, epochs):
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate=learning_rate,
-        decay_steps=steps_per_epoch,
         decay_rate=0.9
     )
     optimizer = keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=1.0)
