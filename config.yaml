@@ -7,10 +7,6 @@ data:
   augmentation_magnitude: 0.6  # Adjust this value as needed
 
 models:
-  MobileNetV3L:
-    img_size: 224
-    num_dense_layers: 128
-    unfreeze_layers: 37
   MobileNetV3S:
     img_size: 224
     num_dense_layers: 128
