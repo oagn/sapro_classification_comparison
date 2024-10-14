@@ -103,8 +103,6 @@ def main():
             train_ds, 
             val_ds, 
             config, 
-            steps_per_epoch, 
-            validation_steps,
             learning_rate=config['training']['fine_tuning_lr'],
             epochs=config['training']['fine_tuning_epochs']
         )

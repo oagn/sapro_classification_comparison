@@ -8,6 +8,7 @@ from keras_cv.losses import FocalLoss
 def train_model(model, train_ds, val_ds, config, learning_rate, epochs):
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate=learning_rate,
+        decay_steps = 4000,
         decay_rate=0.9
     )
     optimizer = keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=1.0)
