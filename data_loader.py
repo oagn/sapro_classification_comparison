@@ -214,7 +214,7 @@ def load_data(config, model_name):
     print(f"Image size: {img_size}, Batch size: {batch_size}, Augmentation magnitude: {augmentation_magnitude}")
 
     # Load training data
-    train_df = create_fixed_train(config['data']['train_dir'])
+    train_df = create_fixed_train(config['data']['train_dir'], samples_per_class)
     
     # Calculate sampling weights if enabled
     use_weights = config['sampling'].get('use_weights', True)
