@@ -34,6 +34,7 @@ training:
   learning_rate: 0.001
   fine_tuning_lr: 0.00001
   focal_loss_gamma: 2.0
+  new_dataset_per_epoch: true  # Set to true to enable new dataset creation per epoch
 
 sampling:
   use_weights: false  # Set this to false to disable weights

@@ -87,7 +87,8 @@ def main():
             val_ds, 
             config, 
             learning_rate=config['training']['learning_rate'],
-            epochs=config['training']['initial_epochs']
+            epochs=config['training']['initial_epochs'],
+            is_fine_tuning=False
         )
         
         # Plot and save training history for frozen model
@@ -104,7 +105,8 @@ def main():
             val_ds, 
             config, 
             learning_rate=config['training']['fine_tuning_lr'],
-            epochs=config['training']['fine_tuning_epochs']
+            epochs=config['training']['fine_tuning_epochs'],
+            is_fine_tuning=True
         )
         
         # Plot and save training history for unfrozen model
