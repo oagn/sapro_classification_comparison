@@ -16,7 +16,6 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
         
         def on_epoch_begin(self, epoch, logs=None):
             if self.config['training']['new_dataset_per_epoch'] and is_fine_tuning:
-                print(f"Creating new training dataset for epoch {epoch+1}")
                 samples_per_class = self.config['sampling'].get('samples_per_class', None)
                 new_train_df = create_fixed_train(self.config['data']['train_dir'], samples_per_class)
                 new_train_ds = create_tensorset(
