@@ -29,8 +29,8 @@ models:
     unfreeze_layers: 36
 
 training:
-  initial_epochs: 25
-  fine_tuning_epochs: 50
+  initial_epochs: 5
+  fine_tuning_epochs: 5
   learning_rate: 0.001
   fine_tuning_lr: 0.00001
   focal_loss_gamma: 2.0
@@ -39,4 +39,4 @@ sampling:
   use_weights: false  # Set this to false to disable weights
   method: mild_square_root
   power: 0.3
-  samples_per_class: 350  # Optional: specify the number of samples per class, or omit to use the minimum class size
+  samples_per_class: 400  # Optional: specify the number of samples per class, or omit to use the minimum class size
