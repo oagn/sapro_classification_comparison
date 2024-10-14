@@ -29,17 +29,30 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, is_fine_
                 )
                 self.model.train_dataset = new_train_ds
 
+    class LearningRateLogger(keras.callbacks.Callback):
+        def on_epoch_end(self, epoch, logs=None):
+            lr = self.model.optimizer.learning_rate
+            if hasattr(lr, 'numpy'):
+                lr = lr.numpy()
+            elif callable(lr):
+                lr = lr(self.model.optimizer.iterations)
+            print(f"\nLearning rate for epoch {epoch+1}: {lr}")
+
     callbacks = [
         keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, mode='min'),
-        keras.callbacks.ReduceLROnPlateau(factor=0.2, patience=3, mode='min'),
-        NewDatasetCallback(config)
+        NewDatasetCallback(config),
+        LearningRateLogger()
     ]
 
-    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate=learning_rate,
-        decay_steps = 100000,
-        decay_rate=0.9,
-    )
+    if isinstance(learning_rate, (float, int)):
+        lr_schedule = learning_rate
+        callbacks.append(keras.callbacks.ReduceLROnPlateau(factor=0.2, patience=3, mode='min'))
+    else:
+        lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate=learning_rate,
+            decay_steps=4000,
+            decay_rate=0.9
+        )
 
     optimizer = keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=1.0)
     loss = FocalLoss(
