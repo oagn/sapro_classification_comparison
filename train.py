@@ -11,7 +11,7 @@ def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_ste
         decay_steps=steps_per_epoch,
         decay_rate=0.9
     )
-    optimizer = keras.optimizers.Adam(learning_rate=lr_schedule)
+    optimizer = keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=1.0)
     loss = FocalLoss(
         alpha=config['training'].get('focal_loss_alpha', 0.25),
         gamma=config['training']['focal_loss_gamma'],

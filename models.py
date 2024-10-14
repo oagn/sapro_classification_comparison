@@ -55,20 +55,7 @@ def create_model(model_name, num_classes, config):
 
 
 def unfreeze_model(model, num_layers_to_unfreeze):
-    # Make the whole model trainable
-    model.trainable = True
-    
-    # Get the total number of layers in the model
-    total_layers = len(model.layers)
-    
-    # Determine the starting index for unfreezing
-    start_unfreeze = max(0, total_layers - num_layers_to_unfreeze)
-    
-    # Freeze/unfreeze layers
-    for i, layer in enumerate(model.layers):
-        if i < start_unfreeze or isinstance(layer, layers.BatchNormalization):
-            layer.trainable = False
-        else:
+    for layer in model.layers[-num_layers_to_unfreeze:]:
+        if not isinstance(layer, keras.layers.BatchNormalization):
             layer.trainable = True
-    
     return model
