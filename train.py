@@ -28,18 +28,19 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, is_fine_
                     model_name=self.config['model_name']
                 )
                 self.model.train_dataset = new_train_ds
-    
-    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate=learning_rate,
-        decay_steps = 1000,
-        decay_rate=0.9
-    )
 
     callbacks = [
-        keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True),
-        keras.callbacks.ReduceLROnPlateau(factor=0.2, patience=3),
+        keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, mode='min'),
+        keras.callbacks.ReduceLROnPlateau(factor=0.2, patience=3, mode='min'),
         NewDatasetCallback(config)
     ]
+
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate=learning_rate,
+        decay_steps = 10,
+        decay_rate=0.9,
+        lr_min=1e-7
+    )
 
     optimizer = keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=1.0)
     loss = FocalLoss(
