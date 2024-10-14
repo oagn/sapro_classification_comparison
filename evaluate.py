@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn import metrics
 from sklearn.metrics import classification_report, ConfusionMatrixDisplay, f1_score
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -31,7 +32,7 @@ def evaluate_model(model, test_path, class_names, batch_size=32, img_size=224, o
     print(classification_report(y_true, y_pred, digits=3))
 
     # plot confusion matrix
-    confusion_matrix = confusion_matrix(y_true, y_pred, normalize = "true")
+    confusion_matrix = metrics.confusion_matrix(y_true, y_pred, normalize = "true")
     rcParams.update({'figure.autolayout': True})
     nc = len(class_ids)
     if nc > 20: # adjust font size with many classes

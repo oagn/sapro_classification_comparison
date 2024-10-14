@@ -107,6 +107,9 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
                         num_parallel_calls=tf.data.AUTOTUNE)
         ds = ds.prefetch(tf.data.AUTOTUNE)
 
+    if ds_name == "train":
+        ds = ds.shuffle(buffer_size=len(in_df), reshuffle_each_iteration=True)
+
     return ds
 
 

@@ -115,7 +115,6 @@ def main():
         plot_training_history(history_unfrozen, f"{model_name}_unfrozen", output_dir)
         
         print(f"Evaluating {model_name}...")
-        eval_results = evaluate_model(model, test_ds)
         eval_results = evaluate_model(model, config['data']['test_dir'], ['healthy','sapro'], 
                                       batch_size=config['data']['batch_size'], 
                                       img_size=config['models'][model_name]['img_size'], 
