@@ -21,11 +21,11 @@ def plot_training_history(history, model_name, output_dir):
     plt.legend()
     
     plt.subplot(1, 2, 2)
-    plt.plot(history.history['f1_score'], label='Training F1')
-    plt.plot(history.history['val_f1_score'], label='Validation F1')
-    plt.title(f'{model_name} - Training and Validation F1 Score')
+    plt.plot(history.history['accuracy'], label='Training accuracy')
+    plt.plot(history.history['val_accuracy'], label='Validation accuracy')
+    plt.title(f'{model_name} - Training and Validation accuracy')
     plt.xlabel('Epoch')
-    plt.ylabel('F1 Score')
+    plt.ylabel('Accuracy')
     plt.legend()
     
     plt.tight_layout()
