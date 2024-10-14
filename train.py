@@ -37,9 +37,8 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, is_fine_
 
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate=learning_rate,
-        decay_steps = 10,
+        decay_steps = 100000,
         decay_rate=0.9,
-        lr_min=1e-7
     )
 
     optimizer = keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=1.0)
