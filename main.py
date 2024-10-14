@@ -72,7 +72,7 @@ def main():
                 for i, element in enumerate(batch):
                     print(f"Element {i} shape: {element.shape}")
 
-        steps_per_epoch = len(train_ds) // config['data']['batch_size']
+        steps_per_epoch = num_train_samples // config['data']['batch_size']
         if steps_per_epoch == 0:
             steps_per_epoch = 1  # Ensure at least one step per epoch
         validation_steps = num_val_samples // config['data']['batch_size']
