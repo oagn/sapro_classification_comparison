@@ -143,6 +143,7 @@ def get_balanced_sampling_weights(labels):
 def apply_sampling_method(labels, sampling_config):
     sampling_method = sampling_config['method']
     sampling_power = sampling_config.get('power', 0.5)  # Default to 0.5 if not specified
+    samples_per_class = sampling_config.get('samples_per_class', None)
     
     print(f"Applying sampling method: {sampling_method} with power: {sampling_power}")
     
@@ -154,6 +155,8 @@ def apply_sampling_method(labels, sampling_config):
         return get_square_root_sampling_weights(labels, mild=False, power=sampling_power)
     elif sampling_method == 'balanced':
         return get_balanced_sampling_weights(labels)
+    elif sampling_method == 'equal':
+        return get_equal_sampling_weights(labels, samples_per_class)
     else:
         print(f"Unknown sampling method: {sampling_method}. No sampling applied.")
         return np.ones_like(labels, dtype=np.float32)  # No sampling
@@ -185,6 +188,17 @@ def count_classes_from_dataset(dataset):
             class_counts[label] += int(weight)
     
     return class_counts
+
+def get_equal_sampling_weights(labels, samples_per_class=None):
+    class_counts = np.bincount(labels)
+    if samples_per_class is None:
+        samples_per_class = class_counts.min()
+    
+    weights = np.zeros_like(labels, dtype=np.float32)
+    for class_label, count in enumerate(class_counts):
+        weights[labels == class_label] = samples_per_class / count
+    
+    return weights
 
 def load_data(config, model_name):
     img_size = config['models'][model_name]['img_size']
@@ -239,3 +253,5 @@ def load_data(config, model_name):
     print(f"Loaded {num_train_samples} training samples, {len(val_df)} validation samples, and {len(test_df)} test samples")
 
     return train_ds, val_ds, test_ds, num_train_samples, len(val_df)
+
+

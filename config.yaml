@@ -36,6 +36,7 @@ training:
   focal_loss_gamma: 2.0
 
 sampling:
-  use_weights: true  # Set this to false to disable weights
+  use_weights: false  # Set this to false to disable weights
   method: mild_square_root
   power: 0.3
+  samples_per_class: 350  # Optional: specify the number of samples per class, or omit to use the minimum class size
