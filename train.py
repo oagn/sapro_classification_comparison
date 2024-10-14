@@ -45,11 +45,9 @@ def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_ste
     with mesh:
         history = model.fit(
             x=train_ds,
-            steps_per_epoch=steps_per_epoch,
             epochs=epochs,  # Use the epochs parameter here
             validation_data=val_ds,
-            validation_steps=validation_steps,
-            callbacks=[
+            validation_steps=validation_steps,            callbacks=[
                 keras.callbacks.EarlyStopping(
                     monitor='val_loss',
                     patience=5,  # Increase patience

@@ -86,8 +86,6 @@ def main():
             train_ds, 
             val_ds, 
             config, 
-            steps_per_epoch, 
-            validation_steps, 
             learning_rate=config['training']['learning_rate'],
             epochs=config['training']['initial_epochs']
         )
