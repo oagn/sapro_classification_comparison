@@ -8,6 +8,7 @@ data:
   #test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_all_EA_usergroup/test'
   batch_size: 32
   augmentation_magnitude: 0.6  # Adjust this value as needed
+  num_classes: 3
 
 models:
   MobileNetV3S:
@@ -39,4 +40,4 @@ sampling:
   use_weights: false  # Set this to false to disable weights
   method: mild_square_root
   power: 0.3
-  samples_per_class: 400  # Optional: specify the number of samples per class, or omit to use the minimum class size
+  samples_per_class: 1300  # Optional: specify the number of samples per class, or omit to use the minimum class size
