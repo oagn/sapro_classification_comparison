@@ -41,7 +41,6 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
         alpha=config['training'].get('focal_loss_alpha', 0.25),
         gamma=config['training']['focal_loss_gamma'],
         from_logits=False,
-        reduction="auto",
         name="focal_loss",
     )
 
