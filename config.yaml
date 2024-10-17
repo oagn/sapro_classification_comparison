@@ -1,5 +1,5 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/Possum_classification/straight_run'
+  output_dir: '/scratch/c.c1767198/output/Possum_classification/wildlife_weights_run'
   train_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/train'
   val_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/validate'
   test_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/test'
@@ -9,6 +9,8 @@ data:
   batch_size: 32
   augmentation_magnitude: 0.6  # Adjust this value as needed
   num_classes: 3
+  class_names: ['0','12','99']
+  weights_path: '/scratch/c.c1767198/output/wildlife_no_possum.weights.h5'
 
 models:
   MobileNetV3S:

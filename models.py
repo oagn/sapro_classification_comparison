@@ -1,7 +1,7 @@
 import keras
 from keras import layers
 
-def create_model(model_name, num_classes, config):
+def create_model(model_name, num_classes, config, weights_path=None):
     print(f"Creating model: {model_name} with {num_classes} classes")
     img_size = config['models'][model_name]['img_size']
     
@@ -51,6 +51,10 @@ def create_model(model_name, num_classes, config):
     outputs = layers.Dense(num_classes, activation='softmax', name='output_layer')(x)
 
     model = keras.Model(inputs=base_model.input, outputs=outputs)
+    
+    if weights_path:
+        print(f"Loading weights from {weights_path}")
+        model.load_weights(weights_path, skip_mismatch=True)
     
     print(f"Model created with output shape: {model.output_shape}")
     

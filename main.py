@@ -76,7 +76,7 @@ def main():
 
         num_classes = config['data']['num_classes']
         print(f"Creating model with {num_classes} classes")
-        model = create_model(model_name, num_classes=num_classes, config=config)
+        model = create_model(model_name, num_classes=num_classes, config=config, weights_path=config['data']['weights_path'])
         print(f"Model output shape: {model.output_shape}")
            
         # Initial training with frozen base model
@@ -117,7 +117,7 @@ def main():
         plot_training_history(history_unfrozen, f"{model_name}_unfrozen", output_dir)
         
         print(f"Evaluating {model_name}...")
-        eval_results = evaluate_model(model, config['data']['test_dir'], ['healthy','sapro'], 
+        eval_results = evaluate_model(model, config['data']['test_dir'], config['data']['class_names'], 
                                       batch_size=config['data']['batch_size'], 
                                       img_size=config['models'][model_name]['img_size'], 
                                       output_path=config['data']['output_dir'])
