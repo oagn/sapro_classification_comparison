@@ -2,7 +2,7 @@ import keras
 from keras import layers
 
 def create_model(model_name, num_classes, config):
-    print(f"Creating model: {model_name}")
+    print(f"Creating model: {model_name} with {num_classes} classes")
     img_size = config['models'][model_name]['img_size']
     
     if model_name == 'MobileNetV3L':
@@ -51,6 +51,10 @@ def create_model(model_name, num_classes, config):
     outputs = layers.Dense(num_classes, activation='softmax')(x)
 
     model = keras.Model(inputs=base_model.input, outputs=outputs)
+    
+    # Print model summary to verify the output shape
+    model.summary()
+    
     return model
 
 

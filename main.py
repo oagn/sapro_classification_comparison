@@ -36,6 +36,8 @@ def main():
     with open('config.yaml', 'r') as f:
         config = yaml.safe_load(f)
 
+    print(f"Number of classes in config: {config['data']['num_classes']}")
+
     output_dir = config['data']['output_dir']
     os.makedirs(output_dir, exist_ok=True)
 
@@ -73,6 +75,7 @@ def main():
                     print(f"Element {i} shape: {element.shape}")
 
         model = create_model(model_name, num_classes=config['data']['num_classes'], config=config)
+        print(f"Model output shape: {model.output_shape}")
            
         # Initial training with frozen base model
         print("Initial training with frozen base model...")
