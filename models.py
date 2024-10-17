@@ -48,12 +48,11 @@ def create_model(model_name, num_classes, config):
     
     x = layers.Dense(config['models'][model_name]['num_dense_layers'], activation='relu')(base_model.output)
     x = layers.Dropout(0.2)(x)
-    outputs = layers.Dense(num_classes, activation='softmax')(x)
+    outputs = layers.Dense(num_classes, activation='softmax', name='output_layer')(x)
 
     model = keras.Model(inputs=base_model.input, outputs=outputs)
     
-    # Print model summary to verify the output shape
-    model.summary()
+    print(f"Model created with output shape: {model.output_shape}")
     
     return model
 

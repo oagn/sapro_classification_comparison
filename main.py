@@ -74,7 +74,9 @@ def main():
                 for i, element in enumerate(batch):
                     print(f"Element {i} shape: {element.shape}")
 
-        model = create_model(model_name, num_classes=config['data']['num_classes'], config=config)
+        num_classes = config['data']['num_classes']
+        print(f"Creating model with {num_classes} classes")
+        model = create_model(model_name, num_classes=num_classes, config=config)
         print(f"Model output shape: {model.output_shape}")
            
         # Initial training with frozen base model
