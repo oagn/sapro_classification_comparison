@@ -8,11 +8,11 @@ from data_loader import create_tensorset, load_data
 from models import create_model
 from train import train_model
 
-def generate_pseudo_labels(model, unlabeled_data_dir, config):
+def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
     """
     Generate pseudo-labels for unlabeled data using the given model.
     """
-    img_size = config['models'][config['model_name']]['img_size']
+    img_size = config['models'][model_name]['img_size']
     batch_size = config['data']['batch_size']
     confidence_threshold = config['pseudo_labeling']['confidence_threshold']
 
@@ -40,18 +40,18 @@ def combine_datasets(original_df, pseudo_df):
     """
     return pd.concat([original_df, pseudo_df[['File', 'Label']]], ignore_index=True)
 
-def retrain_with_pseudo_labels(model, combined_df, config):
+def retrain_with_pseudo_labels(model, combined_df, config, model_name):
     """
     Retrain the model using the combined dataset of original and pseudo-labeled data.
     """
     train_ds = create_tensorset(combined_df, 
-                                config['models'][config['model_name']]['img_size'],
+                                config['models'][model_name]['img_size'],
                                 config['data']['batch_size'],
                                 config['data'].get('augmentation_magnitude', 0.3),
                                 ds_name="train",
-                                model_name=config['model_name'])
+                                model_name=model_name)
 
-    _, val_ds, _, _, _ = load_data(config, config['model_name'])  # Get val_ds
+    _, val_ds, _, _, _ = load_data(config, model_name)  # Get val_ds
 
     history = train_model(
         model,
@@ -60,8 +60,8 @@ def retrain_with_pseudo_labels(model, combined_df, config):
         config,
         learning_rate=config['training']['learning_rate'],
         epochs=config['pseudo_labeling']['retraining_epochs'],
-        image_size=config['models'][config['model_name']]['img_size'],
-        model_name=config['model_name'],
+        image_size=config['models'][model_name]['img_size'],
+        model_name=model_name,
         is_fine_tuning=True
     )
 
@@ -71,24 +71,32 @@ def pseudo_labeling_pipeline(config):
     """
     Main function to run the pseudo-labeling pipeline.
     """
+    # Ensure model_name is specified in the config
+    if 'model_name' not in config['pseudo_labeling']:
+        raise ValueError("'model_name' must be specified in the 'pseudo_labeling' section of the config.")
+    
+    model_name = config['pseudo_labeling']['model_name']
+    
     # Load the trained model
     model = load_model(config['pseudo_labeling']['model_path'])
     
     # Generate pseudo-labels
-    pseudo_labeled_data = generate_pseudo_labels(model, config['pseudo_labeling']['unlabeled_data_dir'], config)
+    pseudo_labeled_data = generate_pseudo_labels(model, config['pseudo_labeling']['unlabeled_data_dir'], config, model_name)
     
-    pseudo_labeled_data.groupby('Label').count()
+    print(f"Pseudo-labeled data distribution:")
+    print(pseudo_labeled_data['Label'].value_counts())
+    
     # Load original labeled data
-    _, _, _, _, _, train_df = load_data(config, config['model_name'])  # Get train_df
+    _, _, _, _, _, train_df = load_data(config, model_name)  # Get train_df
     
     # Combine datasets
-    combined_df = combine_datasets(train_df, pseudo_labeled_data, config)
+    combined_df = combine_datasets(train_df, pseudo_labeled_data)
     
     # Retrain the model
-    retrained_model, history = retrain_with_pseudo_labels(model, combined_df, config)
+    retrained_model, history = retrain_with_pseudo_labels(model, combined_df, config, model_name)
     
     # Save the retrained model
-    retrained_model.save(os.path.join(config['data']['output_dir'], 'retrained_model.keras'))
+    retrained_model.save(os.path.join(config['data']['output_dir'], f'retrained_model_{model_name}.keras'))
 
 
 if __name__ == "__main__":

@@ -46,7 +46,8 @@ sampling:
   samples_per_class: 1300  # Optional: specify the number of samples per class, or omit to use the minimum class size
 
 pseudo_labeling:
-  model_path: '/scratch/c.c1767198/output/Possum_classification/EfficientNetV2S_model_final.keras'
+  model_name: 'EfficientNetV2S'
+  model_path: '/scratch/c.c1767198/output/Possum_classification/wildlife_weights_run/EfficientNetV2S_model_final.keras'
   unlabeled_data_dir: '/scratch/c.c1767198/data/possums/unlabeled_possums'
   confidence_threshold: 0.95
-  retraining_epochs: 10  # Number of epochs for retraining with pseudo-labels
+  retraining_epochs: 20
