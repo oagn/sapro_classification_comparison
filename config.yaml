@@ -13,22 +13,22 @@ data:
   weights_path: '/scratch/c.c1767198/output/wildlife_no_possum.weights.h5'
 
 models:
-  MobileNetV3S:
-    img_size: 224
-    num_dense_layers: 128
-    unfreeze_layers: 52
-  EfficientNetV2B0:
-    img_size: 224
-    num_dense_layers: 256
-    unfreeze_layers: 198
+  #MobileNetV3S:
+  #  img_size: 224
+  #  num_dense_layers: 128
+  #  unfreeze_layers: 52
+  #EfficientNetV2B0:
+  #  img_size: 224
+  #  num_dense_layers: 256
+  #  unfreeze_layers: 198
   EfficientNetV2S:
     img_size: 300
     num_dense_layers: 512
     unfreeze_layers: 363
-  ResNet50:
-    img_size: 224
-    num_dense_layers: 128
-    unfreeze_layers: 36
+  #ResNet50:
+  #  img_size: 224
+  #  num_dense_layers: 128
+  #  unfreeze_layers: 36
 
 training:
   initial_epochs: 20
