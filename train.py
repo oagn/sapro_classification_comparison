@@ -4,34 +4,44 @@ import jax
 from jax.experimental.mesh_utils import create_device_mesh
 from jax.sharding import Mesh
 from keras_cv.losses import FocalLoss
+from data_loader import create_fixed_train, create_tensorset
 
-class F1Score(keras.metrics.Metric):
-    def __init__(self, name='f1_score', **kwargs):
-        super().__init__(name=name, **kwargs)
-        self.precision = keras.metrics.Precision()
-        self.recall = keras.metrics.Recall()
 
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        y_true = keras.ops.argmax(y_true, axis=-1)
-        y_pred = keras.ops.argmax(y_pred, axis=-1)
-        self.precision.update_state(y_true, y_pred, sample_weight)
-        self.recall.update_state(y_true, y_pred, sample_weight)
+def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size=224, model_name=None, is_fine_tuning=False):
 
-    def result(self):
-        p = self.precision.result()
-        r = self.recall.result()
-        return 2 * ((p * r) / (p + r + jnp.finfo(jnp.float32).eps))
+    class NewDatasetCallback(keras.callbacks.Callback):
+        def __init__(self, config):
+            super().__init__()
+            self.config = config
+        
+        def on_epoch_begin(self, epoch, logs=None):
+            if self.config['training']['new_dataset_per_epoch'] and is_fine_tuning:
+                samples_per_class = self.config['sampling'].get('samples_per_class', None)
+                new_train_df = create_fixed_train(self.config['data']['train_dir'], samples_per_class)
+                new_train_ds = create_tensorset(
+                    new_train_df, 
+                    image_size,
+                    self.config['data']['batch_size'],
+                    self.config['data'].get('augmentation_magnitude', 0.3),
+                    ds_name="train",
+                    model_name=model_name
+                )
+                self.model.train_dataset = new_train_ds
 
-    def reset_state(self):
-        self.precision.reset_state()
-        self.recall.reset_state()
 
-def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_steps):
-    optimizer = keras.optimizers.Adam(learning_rate=config['training']['learning_rate'])
+    callbacks = [
+        keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, mode='min'),
+        keras.callbacks.ReduceLROnPlateau(factor=0.2, patience=5, mode='min'),
+        NewDatasetCallback(config),
+    ]
+
+
+    optimizer = keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=1.0)
     loss = FocalLoss(
         alpha=config['training'].get('focal_loss_alpha', 0.25),
         gamma=config['training']['focal_loss_gamma'],
-        from_logits=False
+        from_logits=False,
+        name="focal_loss",
     )
 
     # Set up JAX devices and mesh
@@ -53,27 +63,17 @@ def train_model(model, train_ds, val_ds, config, steps_per_epoch, validation_ste
     # Compile the model
     if mesh:
         with mesh:
-            model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy', F1Score()], jit_compile=True)
+            model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'], jit_compile=True)
     else:
-        model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy', F1Score()], jit_compile=True)
-
-    class DebugCallback(keras.callbacks.Callback):
-        def on_epoch_end(self, epoch, logs=None):
-            print(f"Epoch {epoch+1} ended. Logs: {logs}")
+        model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'], jit_compile=True)
 
     # Train the model with distributed strategy
     with mesh:
         history = model.fit(
             x=train_ds,
-            steps_per_epoch=steps_per_epoch,
-            epochs=config['training']['epochs'],
+            epochs=epochs,  
             validation_data=val_ds,
-            validation_steps=validation_steps,
-            callbacks=[
-                keras.callbacks.EarlyStopping(patience=5, restore_best_weights=True),
-                keras.callbacks.ReduceLROnPlateau(factor=0.1, patience=3),
-                DebugCallback()
-            ]
+            callbacks=callbacks
         )
 
     return history

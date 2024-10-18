@@ -3,9 +3,6 @@ os.environ["KERAS_BACKEND"] = "jax"
 
 import yaml
 from data_loader import load_data
-from models import create_model, unfreeze_model
-from train import train_model
-from evaluate import evaluate_model
 import matplotlib.pyplot as plt
 import datetime
 
@@ -33,10 +30,12 @@ def plot_training_history(history, model_name, output_dir):
     plt.close()
 
 def main():
-    with open('config.yaml', 'r') as f:
+    with open('/home/c.c1767198/workarea/sapro_classification_comparison/config.yaml', 'r') as f:
         config = yaml.safe_load(f)
 
-    print(f"Number of classes in config: {config['data']['num_classes']}")
+    from models import create_model, unfreeze_model
+    from train import train_model
+    from evaluate import evaluate_model
 
     output_dir = config['data']['output_dir']
     os.makedirs(output_dir, exist_ok=True)
@@ -74,10 +73,12 @@ def main():
                 for i, element in enumerate(batch):
                     print(f"Element {i} shape: {element.shape}")
 
-        num_classes = config['data']['num_classes']
-        print(f"Creating model with {num_classes} classes")
-        model = create_model(model_name, num_classes=num_classes, config=config, weights_path=config['data']['weights_path'])
-        print(f"Model output shape: {model.output_shape}")
+        steps_per_epoch = num_train_samples // config['data']['batch_size']
+        if steps_per_epoch == 0:
+            steps_per_epoch = 1  # Ensure at least one step per epoch
+        validation_steps = num_val_samples // config['data']['batch_size']
+
+        model = create_model(model_name, num_classes=2, config=config)
            
         # Initial training with frozen base model
         print("Initial training with frozen base model...")
@@ -117,7 +118,7 @@ def main():
         plot_training_history(history_unfrozen, f"{model_name}_unfrozen", output_dir)
         
         print(f"Evaluating {model_name}...")
-        eval_results = evaluate_model(model, config['data']['test_dir'], config['data']['class_names'], 
+        eval_results = evaluate_model(model, config['data']['test_dir'], ['healthy','sapro'], 
                                       batch_size=config['data']['batch_size'], 
                                       img_size=config['models'][model_name]['img_size'], 
                                       output_path=config['data']['output_dir'])
