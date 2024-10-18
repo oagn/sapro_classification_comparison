@@ -16,21 +16,34 @@ def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
     batch_size = config['data']['batch_size']
     confidence_threshold = config['pseudo_labeling']['confidence_threshold']
 
-    unlabeled_ds = tf.keras.preprocessing.image_dataset_from_directory(
-        unlabeled_data_dir,
-        image_size=(img_size, img_size),
-        batch_size=batch_size,
-        shuffle=False
-    )
+    # Get all image files in the directory
+    image_files = [os.path.join(unlabeled_data_dir, f) for f in os.listdir(unlabeled_data_dir) 
+                   if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif'))]
+
+    if not image_files:
+        raise ValueError(f"No images found in directory {unlabeled_data_dir}")
+
+    # Function to load and preprocess images
+    def load_and_preprocess_image(file_path):
+        img = tf.io.read_file(file_path)
+        img = tf.image.decode_image(img, channels=3, expand_animations=False)
+        img = tf.image.resize(img, [img_size, img_size])
+        img = tf.cast(img, tf.float32) / 255.0  # Normalize to [0,1]
+        return img
+
+    # Create a dataset from the image files
+    unlabeled_ds = tf.data.Dataset.from_tensor_slices(image_files)
+    unlabeled_ds = unlabeled_ds.map(load_and_preprocess_image, num_parallel_calls=tf.data.AUTOTUNE)
+    unlabeled_ds = unlabeled_ds.batch(batch_size)
 
     pseudo_labeled_data = []
-    for images, file_paths in unlabeled_ds:
-        predictions = model.predict(images)
-        for pred, file_path in zip(predictions, file_paths.numpy()):
+    for batch_images in unlabeled_ds:
+        batch_predictions = model.predict(batch_images)
+        for pred, file_path in zip(batch_predictions, image_files):
             confidence = np.max(pred)
             if confidence >= confidence_threshold:
                 predicted_label = np.argmax(pred)
-                pseudo_labeled_data.append((file_path.decode(), predicted_label, confidence))
+                pseudo_labeled_data.append((file_path, predicted_label, confidence))
 
     return pd.DataFrame(pseudo_labeled_data, columns=['File', 'Label', 'Confidence'])
 
