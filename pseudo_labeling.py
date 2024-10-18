@@ -57,14 +57,24 @@ def retrain_with_pseudo_labels(model, combined_df, config, model_name):
     """
     Retrain the model using the combined dataset of original and pseudo-labeled data.
     """
-    train_ds = create_tensorset(combined_df, 
-                                config['models'][model_name]['img_size'],
-                                config['data']['batch_size'],
-                                config['data'].get('augmentation_magnitude', 0.3),
-                                ds_name="train",
-                                model_name=model_name)
+    if config['pseudo_labeling'].get('use_all_samples', True):
+        train_ds = create_tensorset(combined_df, 
+                                    config['models'][model_name]['img_size'],
+                                    config['data']['batch_size'],
+                                    config['data'].get('augmentation_magnitude', 0.3),
+                                    ds_name="train",
+                                    model_name=model_name)
+    else:
+        num_samples = config['pseudo_labeling'].get('num_samples_per_epoch', len(combined_df))
+        initial_sample = combined_df.sample(n=num_samples, replace=False)
+        train_ds = create_tensorset(initial_sample, 
+                                    config['models'][model_name]['img_size'],
+                                    config['data']['batch_size'],
+                                    config['data'].get('augmentation_magnitude', 0.3),
+                                    ds_name="train",
+                                    model_name=model_name)
 
-    _, val_ds, _, _, _ = load_data(config, model_name)  # Get val_ds
+    _, val_ds, _, _, _, _ = load_data(config, model_name)  # Get val_ds
 
     history = train_model(
         model,
@@ -97,7 +107,7 @@ def pseudo_labeling_pipeline(config):
     pseudo_labeled_data = generate_pseudo_labels(model, config['pseudo_labeling']['unlabeled_data_dir'], config, model_name)
     
     print(f"Pseudo-labeled data distribution:")
-    print(pseudo_labeled_data['Label'].value_counts())
+    pseudo_labeled_data['Label'].count()
     
     # Load original labeled data
     _, _, _, _, _, train_df = load_data(config, model_name)  # Get train_df

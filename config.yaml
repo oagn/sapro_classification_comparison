@@ -51,3 +51,5 @@ pseudo_labeling:
   unlabeled_data_dir: '/scratch/c.c1767198/data/possums/unlabeled_possums'
   confidence_threshold: 0.95
   retraining_epochs: 20
+  use_all_samples: false  # Set to true to use all samples, false to use a subset
+  num_samples_per_epoch: 4000  # Number of samples to use if not using all

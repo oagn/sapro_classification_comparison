@@ -5,19 +5,39 @@ from jax.experimental.mesh_utils import create_device_mesh
 from jax.sharding import Mesh
 from keras_cv.losses import FocalLoss
 from data_loader import create_fixed_train, create_tensorset
+import pandas as pd
+import numpy as np
 
 
 def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size=224, model_name=None, is_fine_tuning=False):
 
     class NewDatasetCallback(keras.callbacks.Callback):
-        def __init__(self, config):
+        def __init__(self, config, combined_df=None):
             super().__init__()
             self.config = config
+            self.combined_df = combined_df
         
         def on_epoch_begin(self, epoch, logs=None):
             if self.config['training']['new_dataset_per_epoch'] and is_fine_tuning:
-                samples_per_class = self.config['sampling'].get('samples_per_class', None)
-                new_train_df = create_fixed_train(self.config['data']['train_dir'], samples_per_class)
+                if self.combined_df is not None:
+                    # Determine the number of samples to use
+                    if self.config['pseudo_labeling'].get('use_all_samples', True):
+                        new_train_df = self.combined_df
+                    else:
+                        num_samples = self.config['pseudo_labeling'].get('num_samples_per_epoch', len(self.combined_df))
+                        
+                        # Option 1: Simple random sampling
+                        new_train_df = self.combined_df.sample(n=num_samples, replace=False, random_state=epoch)
+                        
+                        # Option 2: Stratified sampling (if you want to maintain class balance)
+                        # new_train_df = self.stratified_sample(num_samples, epoch)
+                    
+                    new_train_df = new_train_df.sample(frac=1, random_state=epoch).reset_index(drop=True)
+                else:
+                    # Fall back to original behavior if combined_df is not provided
+                    samples_per_class = self.config['sampling'].get('samples_per_class', None)
+                    new_train_df = create_fixed_train(self.config['data']['train_dir'], samples_per_class)
+                
                 new_train_ds = create_tensorset(
                     new_train_df, 
                     image_size,
@@ -27,6 +47,10 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
                     model_name=model_name
                 )
                 self.model.train_dataset = new_train_ds
+
+        def stratified_sample(self, num_samples, random_state):
+            # Implement stratified sampling here if needed
+            pass
 
 
     callbacks = [
