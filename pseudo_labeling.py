@@ -37,13 +37,19 @@ def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
     unlabeled_ds = unlabeled_ds.batch(batch_size)
 
     pseudo_labeled_data = []
+    total_predictions = 0
     for batch_images in unlabeled_ds:
         batch_predictions = model.predict(batch_images)
+        total_predictions += len(batch_predictions)
         for pred, file_path in zip(batch_predictions, image_files):
             confidence = np.max(pred)
             if confidence >= confidence_threshold:
                 predicted_label = np.argmax(pred)
                 pseudo_labeled_data.append((file_path, predicted_label, confidence))
+
+    print(f"Total images processed: {total_predictions}")
+    print(f"Images meeting confidence threshold: {len(pseudo_labeled_data)}")
+    print(f"Confidence threshold: {confidence_threshold}")
 
     return pd.DataFrame(pseudo_labeled_data, columns=['File', 'Label', 'Confidence'])
 
@@ -57,6 +63,10 @@ def retrain_with_pseudo_labels(model, combined_df, config, model_name):
     """
     Retrain the model using the combined dataset of original and pseudo-labeled data.
     """
+    if len(combined_df) == 0:
+        print("No pseudo-labeled data available. Skipping retraining.")
+        return model, None
+
     if config['pseudo_labeling'].get('use_all_samples', True):
         train_ds = create_tensorset(combined_df, 
                                     config['models'][model_name]['img_size'],
@@ -65,7 +75,7 @@ def retrain_with_pseudo_labels(model, combined_df, config, model_name):
                                     ds_name="train",
                                     model_name=model_name)
     else:
-        num_samples = config['pseudo_labeling'].get('num_samples_per_epoch', len(combined_df))
+        num_samples = min(config['pseudo_labeling'].get('num_samples_per_epoch', len(combined_df)), len(combined_df))
         initial_sample = combined_df.sample(n=num_samples, replace=False)
         train_ds = create_tensorset(initial_sample, 
                                     config['models'][model_name]['img_size'],
@@ -85,7 +95,8 @@ def retrain_with_pseudo_labels(model, combined_df, config, model_name):
         epochs=config['pseudo_labeling']['retraining_epochs'],
         image_size=config['models'][model_name]['img_size'],
         model_name=model_name,
-        is_fine_tuning=True
+        is_fine_tuning=True,
+        combined_df=combined_df  # Pass the combined DataFrame
     )
 
     return model, history
@@ -108,6 +119,11 @@ def pseudo_labeling_pipeline(config):
     
     print(f"Pseudo-labeled data distribution:")
     print(pseudo_labeled_data['Label'].value_counts())
+    
+    if pseudo_labeled_data.empty:
+        print("No pseudo-labeled data generated. Check the confidence threshold and model predictions.")
+        return
+    
     pseudo_labeled_data.to_csv(os.path.join(config['data']['output_dir'], f'pseudo_labeled_data_{model_name}.csv'), index=False)
     
     # Load original labeled data
