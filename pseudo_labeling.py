@@ -107,7 +107,8 @@ def pseudo_labeling_pipeline(config):
     pseudo_labeled_data = generate_pseudo_labels(model, config['pseudo_labeling']['unlabeled_data_dir'], config, model_name)
     
     print(f"Pseudo-labeled data distribution:")
-    pseudo_labeled_data['Label'].count()
+    print(pseudo_labeled_data['Label'].value_counts())
+    pseudo_labeled_data.to_csv(os.path.join(config['data']['output_dir'], f'pseudo_labeled_data_{model_name}.csv'), index=False)
     
     # Load original labeled data
     _, _, _, _, _, train_df = load_data(config, model_name)  # Get train_df
