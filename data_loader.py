@@ -258,6 +258,6 @@ def load_data(config, model_name):
     num_train_samples = sum(class_counts.values())
     print(f"Loaded {num_train_samples} training samples, {len(val_df)} validation samples, and {len(test_df)} test samples")
 
-    return train_ds, val_ds, test_ds, num_train_samples, len(val_df)
+    return train_ds, val_ds, test_ds, num_train_samples, len(val_df), train_df  # Add train_df to the return statement
 
 

@@ -55,6 +55,8 @@ def create_model(model_name, num_classes, config, weights_path=None):
     if weights_path:
         print(f"Loading weights from {weights_path}")
         model.load_weights(weights_path, skip_mismatch=True)
+    else:
+        print("No pre-trained weights provided. Using imagenet weights.")
     
     print(f"Model created with output shape: {model.output_shape}")
     
