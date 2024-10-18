@@ -38,11 +38,13 @@ def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
 
     pseudo_labeled_data = []
     total_predictions = 0
+    confidence_distribution = []
     for batch_images in unlabeled_ds:
         batch_predictions = model.predict(batch_images)
         total_predictions += len(batch_predictions)
         for pred, file_path in zip(batch_predictions, image_files):
             confidence = np.max(pred)
+            confidence_distribution.append(confidence)
             if confidence >= confidence_threshold:
                 predicted_label = np.argmax(pred)
                 pseudo_labeled_data.append((file_path, predicted_label, confidence))
@@ -50,6 +52,12 @@ def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
     print(f"Total images processed: {total_predictions}")
     print(f"Images meeting confidence threshold: {len(pseudo_labeled_data)}")
     print(f"Confidence threshold: {confidence_threshold}")
+    print(f"Confidence distribution:")
+    print(f"  Min: {np.min(confidence_distribution):.4f}")
+    print(f"  25th percentile: {np.percentile(confidence_distribution, 25):.4f}")
+    print(f"  Median: {np.median(confidence_distribution):.4f}")
+    print(f"  75th percentile: {np.percentile(confidence_distribution, 75):.4f}")
+    print(f"  Max: {np.max(confidence_distribution):.4f}")
 
     return pd.DataFrame(pseudo_labeled_data, columns=['File', 'Label', 'Confidence'])
 

@@ -49,7 +49,7 @@ pseudo_labeling:
   model_name: 'EfficientNetV2S'
   model_path: '/scratch/c.c1767198/output/Possum_classification/wildlife_weights_run/EfficientNetV2S_model_final.keras'
   unlabeled_data_dir: '/scratch/c.c1767198/data/possums/unlabeled_possums'
-  confidence_threshold: 0.9
+  confidence_threshold: 0.7  # or even 0.5, depending on your needs
   retraining_epochs: 20
   use_all_samples: false  # Set to true to use all samples, false to use a subset
   num_samples_per_epoch: 1500  # Number of samples to use if not using all
