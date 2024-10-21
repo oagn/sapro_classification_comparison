@@ -27,7 +27,10 @@ def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
     )
     test_pred_raw = model.predict(no_label_set)
     test_pred = np.argmax(test_pred_raw, axis=1)
-    no_label_df['Label'] = test_pred.astype(str)  # Convert to string
+    
+    # Convert predicted indices back to string labels
+    class_names = config['data']['class_names']
+    no_label_df['Label'] = [class_names[i] for i in test_pred]
     no_label_df['confidence'] = [max(x) for x in test_pred_raw]
     no_label_df['0_conf'] = [x[0] for x in test_pred_raw]
     no_label_df['12_conf'] = [x[1] for x in test_pred_raw]
@@ -35,19 +38,17 @@ def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
 
     return no_label_df[no_label_df['confidence'] >= confidence_threshold]
 
-def combine_datasets(original_df, pseudo_df):
-    """
-    Combine original labeled data with pseudo-labeled data.
-    """
-    # Convert labels to strings in both dataframes
+def combine_datasets(original_df, pseudo_df, config):
+    # Ensure all labels are strings
     original_df['Label'] = original_df['Label'].astype(str)
     pseudo_df['Label'] = pseudo_df['Label'].astype(str)
     
+    # Validate that all labels are in the expected set
+    valid_labels = set(config['data']['class_names'])
+    assert set(original_df['Label']).issubset(valid_labels), "Invalid labels in original dataset"
+    assert set(pseudo_df['Label']).issubset(valid_labels), "Invalid labels in pseudo-labeled dataset"
+    
     combined = pd.concat([original_df, pseudo_df[['File', 'Label']]], ignore_index=True)
-    
-    # Ensure all labels are strings
-    combined['Label'] = combined['Label'].astype(str)
-    
     return combined
 
 def retrain_with_pseudo_labels(model, combined_df, config, model_name):
@@ -121,7 +122,7 @@ def pseudo_labeling_pipeline(config):
     _, _, _, _, _, train_df = load_data(config, model_name)  # Get train_df
     
     # Combine datasets
-    combined_df = combine_datasets(train_df, pseudo_labeled_data)
+    combined_df = combine_datasets(train_df, pseudo_labeled_data, config)
     
     # Retrain the model
     retrained_model, history = retrain_with_pseudo_labels(model, combined_df, config, model_name)

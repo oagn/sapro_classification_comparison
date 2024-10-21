@@ -49,7 +49,7 @@ def create_fixed(ds_path):
     return ds_df
 
 
-def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sample_weights=None, model_name=None):
+def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sample_weights=None, model_name=None, config=None):
     def load(file_path, img_size):
         img = tf.io.read_file(file_path)
         img = tf.image.decode_image(img, channels=3, expand_animations=False)
@@ -70,12 +70,16 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
             raise ValueError(f"Unknown model name: {model_name}")
 
     in_path = in_df['File'].values
-    label_encoder = LabelEncoder()
-    in_class = label_encoder.fit_transform(in_df['Label'].values)
-
-    in_class = in_class.reshape(len(in_class), 1)
-    one_hot_encoder = OneHotEncoder(sparse_output=False)
-    in_class = one_hot_encoder.fit_transform(in_class)
+    
+    # Create a mapping from string labels to integer indices
+    class_names = config['data']['class_names']
+    label_to_index = {label: index for index, label in enumerate(class_names)}
+    
+    # Convert string labels to integer indices
+    in_class = in_df['Label'].map(label_to_index).values
+    
+    # One-hot encode the integer indices
+    in_class = tf.keras.utils.to_categorical(in_class, num_classes=len(class_names))
     
     rand_aug = keras_cv.layers.RandAugment(
         value_range=(0, 255), augmentations_per_image=3, magnitude=magnitude)
@@ -245,15 +249,15 @@ def load_data(config, model_name):
     
     # Create training dataset with or without sampling weights
     train_ds = create_tensorset(train_df, img_size, batch_size, augmentation_magnitude, 
-                                ds_name="train", sample_weights=sample_weights, model_name=model_name)
+                                ds_name="train", sample_weights=sample_weights, model_name=model_name, config=config)
 
     # Load validation data
     val_df = create_fixed(config['data']['val_dir'])
-    val_ds = create_tensorset(val_df, img_size, batch_size, 0, ds_name="validation", model_name=model_name)
+    val_ds = create_tensorset(val_df, img_size, batch_size, 0, ds_name="validation", model_name=model_name, config=config)
 
     # Load test data
     test_df = create_fixed(config['data']['test_dir'])
-    test_ds = create_tensorset(test_df, img_size, batch_size, 0, ds_name="test", model_name=model_name)
+    test_ds = create_tensorset(test_df, img_size, batch_size, 0, ds_name="test", model_name=model_name, config=config)
 
     num_train_samples = sum(class_counts.values())
     print(f"Loaded {num_train_samples} training samples, {len(val_df)} validation samples, and {len(test_df)} test samples")
