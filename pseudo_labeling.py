@@ -40,6 +40,12 @@ def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
     no_label_df['12_conf'] = [x[1] for x in test_pred_raw]
     no_label_df['99_conf'] = [x[2] for x in test_pred_raw]
 
+    print("Pseudo-labeled data distribution:")
+    print(no_label_df['Label'].value_counts(normalize=True))
+    
+    # Check confidence of pseudo-labels
+    print("Average confidence of pseudo-labels:", no_label_df['confidence'].mean())
+    
     return no_label_df[no_label_df['confidence'] >= confidence_threshold]
 
 def combine_datasets(original_df, pseudo_df, config):
@@ -91,12 +97,15 @@ def retrain_with_pseudo_labels(model, combined_df, config, model_name):
                                     model_name=model_name,
                                     config=config)  # Pass the config here
 
+    fine_tuning_lr = config['training'].get('fine_tuning_lr', config['training']['learning_rate'] * 0.1)
+    print(f"Fine-tuning learning rate: {fine_tuning_lr}")
+
     history = train_model(
         model,
         train_ds,
         val_ds,
         config,
-        learning_rate=config['training']['learning_rate'],
+        learning_rate=fine_tuning_lr,
         epochs=config['pseudo_labeling']['retraining_epochs'],
         image_size=config['models'][model_name]['img_size'],
         model_name=model_name,

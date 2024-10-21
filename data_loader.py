@@ -140,6 +140,12 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
         ds = ds.shuffle(buffer_size=len(in_df), reshuffle_each_iteration=True)
         #ds = ds.repeat()
 
+    print("Unique labels in the dataset:", in_df['Label'].unique())
+    print("Class names from config:", config['data']['class_names'])
+    
+    # After creating in_class
+    print("Unique values in in_class:", np.unique(in_class, return_counts=True))
+    
     return ds
 
 def print_dsinfo(ds_df, ds_name='default'):
@@ -295,6 +301,7 @@ def load_data(config, model_name):
     print(f"Loaded {num_train_samples} training samples, {len(val_df)} validation samples, and {len(test_df)} test samples")
 
     return train_ds, val_ds, test_ds, num_train_samples, len(val_df), train_df  # Add train_df to the return statement
+
 
 
 

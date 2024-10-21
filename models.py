@@ -2,8 +2,8 @@ import keras
 from keras import layers
 
 def create_model(model_name, config, weights_path=None):
-    num_classes = config['data']['num_classes']
-    print(f"Creating model: {model_name} with {num_classes} classes")
+    num_classes = len(config['data']['class_names'])
+    print(f"Creating model with {num_classes} output classes")
     img_size = config['models'][model_name]['img_size']
     
     if model_name == 'MobileNetV3L':
@@ -49,7 +49,7 @@ def create_model(model_name, config, weights_path=None):
     
     x = layers.Dense(config['models'][model_name]['num_dense_layers'], activation='relu')(base_model.output)
     x = layers.Dropout(0.2)(x)
-    outputs = layers.Dense(num_classes, activation='softmax', name='output_layer')(x)
+    outputs = layers.Dense(num_classes, activation='softmax', name='predictions')(x)
 
     model = keras.Model(inputs=base_model.input, outputs=outputs)
     
