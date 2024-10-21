@@ -61,7 +61,10 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
             monitor='val_loss',
             mode='min'
         ),
-        keras.callbacks.EarlyStopping(patience=config['training']['early_stopping_patience'], restore_best_weights=True),
+        keras.callbacks.EarlyStopping(
+            patience=config['training'].get('early_stopping_patience', 10),  # Default to 10 if not specified
+            restore_best_weights=True
+        ),
         NewDatasetCallback(config, combined_df)
     ]
 
