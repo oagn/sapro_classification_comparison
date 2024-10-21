@@ -23,7 +23,7 @@ def create_fixed_train(ds_path, samples_per_class=None):
     ds_labels = list(map(lambda x: os.path.split(os.path.split(x)[0])[1], ds_filepaths))
     # Data set paths & labels
     ds_filepaths = pd.Series(ds_filepaths, name='File').astype(str)
-    ds_labels = pd.Series(ds_labels, name='Label')
+    ds_labels = pd.Series(ds_labels, name='Label').astype(str)  # Convert to string
     # Concatenating...
     ds_df = pd.concat([ds_filepaths, ds_labels], axis=1)
     ds_df = ds_df.sample(frac=1, random_state=42).reset_index(drop=True)
@@ -43,7 +43,7 @@ def create_fixed(ds_path):
     ds_labels = list(map(lambda x: os.path.split(os.path.split(x)[0])[1], ds_filepaths))
     # Data set paths & labels
     ds_filepaths = pd.Series(ds_filepaths, name='File').astype(str)
-    ds_labels = pd.Series(ds_labels, name='Label')
+    ds_labels = pd.Series(ds_labels, name='Label').astype(str)  # Convert to string
     # Concatenating...
     ds_df = pd.concat([ds_filepaths, ds_labels], axis=1)
     return ds_df
@@ -259,5 +259,6 @@ def load_data(config, model_name):
     print(f"Loaded {num_train_samples} training samples, {len(val_df)} validation samples, and {len(test_df)} test samples")
 
     return train_ds, val_ds, test_ds, num_train_samples, len(val_df), train_df  # Add train_df to the return statement
+
 
 

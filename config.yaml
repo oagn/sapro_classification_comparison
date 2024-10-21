@@ -52,4 +52,4 @@ pseudo_labeling:
   confidence_threshold: 0.7  # or even 0.5, depending on your needs
   retraining_epochs: 20
   use_all_samples: false  # Set to true to use all samples, false to use a subset
-  num_samples_per_epoch: 1500  # Number of samples to use if not using all
+  num_samples_per_epoch: 1300  # Number of samples to use if not using all

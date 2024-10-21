@@ -27,7 +27,7 @@ def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
     )
     test_pred_raw = model.predict(no_label_set)
     test_pred = np.argmax(test_pred_raw, axis=1)
-    no_label_df['Label'] = test_pred
+    no_label_df['Label'] = test_pred.astype(str)  # Convert to string
     no_label_df['confidence'] = [max(x) for x in test_pred_raw]
     no_label_df['0_conf'] = [x[0] for x in test_pred_raw]
     no_label_df['12_conf'] = [x[1] for x in test_pred_raw]
@@ -39,7 +39,16 @@ def combine_datasets(original_df, pseudo_df):
     """
     Combine original labeled data with pseudo-labeled data.
     """
-    return pd.concat([original_df, pseudo_df[['File', 'Label']]], ignore_index=True)
+    # Convert labels to strings in both dataframes
+    original_df['Label'] = original_df['Label'].astype(str)
+    pseudo_df['Label'] = pseudo_df['Label'].astype(str)
+    
+    combined = pd.concat([original_df, pseudo_df[['File', 'Label']]], ignore_index=True)
+    
+    # Ensure all labels are strings
+    combined['Label'] = combined['Label'].astype(str)
+    
+    return combined
 
 def retrain_with_pseudo_labels(model, combined_df, config, model_name):
     """
