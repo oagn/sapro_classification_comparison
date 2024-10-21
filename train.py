@@ -101,7 +101,15 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
         model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'], jit_compile=True)
 
     # Train the model with distributed strategy
-    with mesh:
+    if mesh:
+        with mesh:
+            history = model.fit(
+                x=train_ds,
+                epochs=epochs,  
+                validation_data=val_ds,
+                callbacks=callbacks
+            )
+    else:
         history = model.fit(
             x=train_ds,
             epochs=epochs,  
