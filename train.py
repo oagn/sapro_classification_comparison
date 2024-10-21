@@ -13,10 +13,12 @@ import os
 def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size=224, model_name=None, is_fine_tuning=False, combined_df=None):
 
     class NewDatasetCallback(keras.callbacks.Callback):
-        def __init__(self, config, combined_df=None):
+        def __init__(self, config, combined_df, model_name, image_size):
             super().__init__()
             self.config = config
             self.combined_df = combined_df
+            self.model_name = model_name
+            self.image_size = image_size
         
         def on_epoch_begin(self, epoch, logs=None):
             if self.config['training']['new_dataset_per_epoch'] and is_fine_tuning:
@@ -41,11 +43,12 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
                 
                 new_train_ds = create_tensorset(
                     new_train_df, 
-                    image_size,
+                    self.image_size,
                     self.config['data']['batch_size'],
                     self.config['data'].get('augmentation_magnitude', 0.3),
                     ds_name="train",
-                    model_name=model_name
+                    model_name=self.model_name,
+                    config=self.config
                 )
                 self.model.train_dataset = new_train_ds
 
@@ -65,7 +68,7 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
             patience=config['training'].get('early_stopping_patience', 10),  # Default to 10 if not specified
             restore_best_weights=True
         ),
-        NewDatasetCallback(config, combined_df)
+        NewDatasetCallback(config, combined_df, model_name, image_size)
     ]
 
 

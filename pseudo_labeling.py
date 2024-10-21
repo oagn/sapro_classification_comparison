@@ -7,6 +7,7 @@ from keras.models import load_model
 from data_loader import create_tensorset, load_data, create_fixed, print_dsinfo
 from models import create_model, unfreeze_model
 from train import train_model
+import keras
 
 def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
     """
@@ -127,7 +128,12 @@ def pseudo_labeling_pipeline(config):
     
     # Load the trained model
     model = load_model(config['pseudo_labeling']['model_path'])
-
+    
+    # Ensure the final layer matches the number of classes
+    num_classes = len(config['data']['class_names'])
+    if model.layers[-1].units != num_classes:
+        model.layers[-1] = keras.layers.Dense(num_classes, activation='softmax', name='predictions')
+    
     model = unfreeze_model(model, config['models'][model_name]['unfreeze_layers'])
     
     # Generate pseudo-labels
