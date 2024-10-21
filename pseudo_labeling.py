@@ -119,7 +119,7 @@ def pseudo_labeling_pipeline(config):
     # Load the trained model
     model = load_model(config['pseudo_labeling']['model_path'])
 
-    model = unfreeze_model(model, config['models'][model_name]['num_layers_to_unfreeze'])
+    model = unfreeze_model(model, config['models'][model_name]['unfreeze_layers'])
     
     # Generate pseudo-labels
     pseudo_labeled_data = generate_pseudo_labels(model, config['pseudo_labeling']['unlabeled_data_dir'], config, model_name)
