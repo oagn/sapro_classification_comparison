@@ -65,6 +65,9 @@ def retrain_with_pseudo_labels(model, combined_df, config, model_name):
     """
     Retrain the model using the combined dataset of original and pseudo-labeled data.
     """
+
+    _, val_ds, _, _, _, _ = load_data(config, model_name)  # Get val_ds
+
     if len(combined_df) == 0:
         print("No pseudo-labeled data available. Skipping retraining.")
         return model, None
@@ -87,8 +90,6 @@ def retrain_with_pseudo_labels(model, combined_df, config, model_name):
                                     ds_name="train",
                                     model_name=model_name,
                                     config=config)  # Pass the config here
-
-    _, val_ds, _, _, _, _ = load_data(config, model_name)  # Get val_ds
 
     history = train_model(
         model,
