@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 from keras.models import load_model
-from data_loader import create_tensorset, load_data
+from data_loader import create_tensorset, load_data, create_fixed
 from models import create_model
 from train import train_model
 
@@ -16,50 +16,23 @@ def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
     batch_size = config['data']['batch_size']
     confidence_threshold = config['pseudo_labeling']['confidence_threshold']
 
-    # Get all image files in the directory
-    image_files = [os.path.join(unlabeled_data_dir, f) for f in os.listdir(unlabeled_data_dir) 
-                   if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif'))]
+    no_label_df = create_fixed(unlabeled_data_dir)
+    no_label_set = create_tensorset(
+        no_label_df, 
+        img_size=img_size, 
+        batch_size=batch_size, 
+        magnitude=0, # no augmentation on test set
+        ds_name="train" # set to test to turn off augmentation, or train or validation to include it
+    )
+    test_pred_raw = model.predict(no_label_set)
+    test_pred = np.argmax(test_pred_raw, axis=1)
+    no_label_df['Label'] = test_pred
+    no_label_df['confidence'] = [max(x,y,z) for x,y,z in test_pred_raw]
+    no_label_df['0_conf'] = [x for x,y,z in test_pred_raw]
+    no_label_df['12_conf'] = [y for x,y,z in test_pred_raw]
+    no_label_df['99_conf'] = [z for x,y,z in test_pred_raw]
 
-    if not image_files:
-        raise ValueError(f"No images found in directory {unlabeled_data_dir}")
-
-    # Function to load and preprocess images
-    def load_and_preprocess_image(file_path):
-        img = tf.io.read_file(file_path)
-        img = tf.image.decode_image(img, channels=3, expand_animations=False)
-        img = tf.image.resize(img, [img_size, img_size])
-        img = tf.cast(img, tf.float32) / 255.0  # Normalize to [0,1]
-        return img
-
-    # Create a dataset from the image files
-    unlabeled_ds = tf.data.Dataset.from_tensor_slices(image_files)
-    unlabeled_ds = unlabeled_ds.map(load_and_preprocess_image, num_parallel_calls=tf.data.AUTOTUNE)
-    unlabeled_ds = unlabeled_ds.batch(batch_size)
-
-    pseudo_labeled_data = []
-    total_predictions = 0
-    confidence_distribution = []
-    for batch_images in unlabeled_ds:
-        batch_predictions = model.predict(batch_images)
-        total_predictions += len(batch_predictions)
-        for pred, file_path in zip(batch_predictions, image_files):
-            confidence = np.max(pred)
-            confidence_distribution.append(confidence)
-            if confidence >= confidence_threshold:
-                predicted_label = np.argmax(pred)
-                pseudo_labeled_data.append((file_path, predicted_label, confidence))
-
-    print(f"Total images processed: {total_predictions}")
-    print(f"Images meeting confidence threshold: {len(pseudo_labeled_data)}")
-    print(f"Confidence threshold: {confidence_threshold}")
-    print(f"Confidence distribution:")
-    print(f"  Min: {np.min(confidence_distribution):.4f}")
-    print(f"  25th percentile: {np.percentile(confidence_distribution, 25):.4f}")
-    print(f"  Median: {np.median(confidence_distribution):.4f}")
-    print(f"  75th percentile: {np.percentile(confidence_distribution, 75):.4f}")
-    print(f"  Max: {np.max(confidence_distribution):.4f}")
-
-    return pd.DataFrame(pseudo_labeled_data, columns=['File', 'Label', 'Confidence'])
+    return no_label_df[no_label_df['confidence'] >= confidence_threshold]
 
 def combine_datasets(original_df, pseudo_df):
     """

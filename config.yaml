@@ -43,7 +43,7 @@ sampling:
   use_weights: false  # Set this to false to disable weights
   method: mild_square_root
   power: 0.3
-  samples_per_class: 1300  # Optional: specify the number of samples per class, or omit to use the minimum class size
+  #samples_per_class: 1300  # Optional: specify the number of samples per class, or omit to use the minimum class size
 
 pseudo_labeling:
   model_name: 'EfficientNetV2S'
