@@ -22,15 +22,16 @@ def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
         img_size=img_size, 
         batch_size=batch_size, 
         magnitude=0, # no augmentation on test set
-        ds_name="train" # set to test to turn off augmentation, or train or validation to include it
+        ds_name="test", # set to test to turn off augmentation
+        model_name=model_name  # Pass the model_name here
     )
     test_pred_raw = model.predict(no_label_set)
     test_pred = np.argmax(test_pred_raw, axis=1)
     no_label_df['Label'] = test_pred
-    no_label_df['confidence'] = [max(x,y,z) for x,y,z in test_pred_raw]
-    no_label_df['0_conf'] = [x for x,y,z in test_pred_raw]
-    no_label_df['12_conf'] = [y for x,y,z in test_pred_raw]
-    no_label_df['99_conf'] = [z for x,y,z in test_pred_raw]
+    no_label_df['confidence'] = [max(x) for x in test_pred_raw]
+    no_label_df['0_conf'] = [x[0] for x in test_pred_raw]
+    no_label_df['12_conf'] = [x[1] for x in test_pred_raw]
+    no_label_df['99_conf'] = [x[2] for x in test_pred_raw]
 
     return no_label_df[no_label_df['confidence'] >= confidence_threshold]
 
