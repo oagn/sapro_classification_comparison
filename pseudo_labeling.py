@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from keras.models import load_model
 from data_loader import create_tensorset, load_data, create_fixed, print_dsinfo
-from models import create_model
+from models import create_model, unfreeze_model
 from train import train_model
 
 def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
@@ -118,6 +118,8 @@ def pseudo_labeling_pipeline(config):
     
     # Load the trained model
     model = load_model(config['pseudo_labeling']['model_path'])
+
+    model = unfreeze_model(model, config['models'][model_name]['num_layers_to_unfreeze'])
     
     # Generate pseudo-labels
     pseudo_labeled_data = generate_pseudo_labels(model, config['pseudo_labeling']['unlabeled_data_dir'], config, model_name)
