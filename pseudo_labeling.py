@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 from keras.models import load_model
-from data_loader import create_tensorset, load_data, create_fixed
+from data_loader import create_tensorset, load_data, create_fixed, print_dsinfo
 from models import create_model
 from train import train_model
 
@@ -46,6 +46,9 @@ def combine_datasets(original_df, pseudo_df, config):
     # Ensure all labels are strings
     original_df['Label'] = original_df['Label'].astype(str)
     pseudo_df['Label'] = pseudo_df['Label'].astype(str)
+
+    print_dsinfo(original_df, 'Old training Data')
+    print_dsinfo(pseudo_df, 'Pseudo training Data')
     
     # Validate that all labels are in the expected set
     valid_labels = set(config['data']['class_names'])
@@ -53,6 +56,9 @@ def combine_datasets(original_df, pseudo_df, config):
     assert set(pseudo_df['Label']).issubset(valid_labels), "Invalid labels in pseudo-labeled dataset"
     
     combined = pd.concat([original_df, pseudo_df[['File', 'Label']]], ignore_index=True)
+
+    print_dsinfo(combined, 'New combined training Data')
+
     return combined
 
 def retrain_with_pseudo_labels(model, combined_df, config, model_name):

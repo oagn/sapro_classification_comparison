@@ -86,11 +86,6 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
         one_hot_encoder = OneHotEncoder(sparse_output=False)
         in_class = one_hot_encoder.fit_transform(in_class)
 
-    # Print some debugging information
-    print(f"Shape of in_class: {in_class.shape}")
-    print(f"Unique values in in_class: {np.unique(in_class)}")
-    print(f"Sample of in_class:\n{in_class[:5]}")
-
     def load(file_path, img_size):
         img = tf.io.read_file(file_path)
         img = tf.image.decode_image(img, channels=3, expand_animations=False)
@@ -147,6 +142,11 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
 
     return ds
 
+def print_dsinfo(ds_df, ds_name='default'):
+    print('Dataset: ' + ds_name)
+    print(f'Number of images in the dataset: {ds_df.shape[0]}')
+    print(ds_df['Label'].value_counts())
+    print(f'\n')
 
 def get_minority_oversampling_weights(labels):
     class_counts = np.bincount(labels)
