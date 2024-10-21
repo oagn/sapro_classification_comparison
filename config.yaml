@@ -9,7 +9,7 @@ data:
   batch_size: 32
   augmentation_magnitude: 0.6  # Adjust this value as needed
   num_classes: 3
-  class_names: ['0','12','99']
+  class_names: ['0', '12', '99']
   #weights_path: '/scratch/c.c1767198/output/wildlife_no_possum.weights.h5'
   weights_path: null
 

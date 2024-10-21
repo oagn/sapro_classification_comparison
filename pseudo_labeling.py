@@ -17,6 +17,9 @@ def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
     confidence_threshold = config['pseudo_labeling']['confidence_threshold']
 
     no_label_df = create_fixed(unlabeled_data_dir)
+    print(f"Unique labels in no_label_df: {no_label_df['Label'].unique()}")
+    print(f"Label distribution in no_label_df:\n{no_label_df['Label'].value_counts()}")
+
     no_label_set = create_tensorset(
         no_label_df, 
         img_size=img_size, 

@@ -58,7 +58,23 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
         label_to_index = {label: index for index, label in enumerate(class_names)}
         
         # Convert string labels to integer indices
-        in_class = in_df['Label'].map(label_to_index).values
+        in_class = in_df['Label'].map(label_to_index)
+        
+        # Check for NaN values (labels not in the mapping)
+        if in_class.isna().any():
+            print("Warning: Some labels are not in the class_names list:")
+            print(in_df[in_class.isna()]['Label'].value_counts())
+            # Fill NaN values with a default value (e.g., -1)
+            in_class = in_class.fillna(-1)
+        
+        in_class = in_class.values
+        
+        # Ensure all values are non-negative integers
+        if (in_class < 0).any():
+            print("Warning: Negative label indices found. Setting them to 0.")
+            in_class[in_class < 0] = 0
+        
+        in_class = in_class.astype(int)
         
         # One-hot encode the integer indices
         in_class = tf.keras.utils.to_categorical(in_class, num_classes=len(class_names))
@@ -69,6 +85,11 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
         in_class = in_class.reshape(len(in_class), 1)
         one_hot_encoder = OneHotEncoder(sparse_output=False)
         in_class = one_hot_encoder.fit_transform(in_class)
+
+    # Print some debugging information
+    print(f"Shape of in_class: {in_class.shape}")
+    print(f"Unique values in in_class: {np.unique(in_class)}")
+    print(f"Sample of in_class:\n{in_class[:5]}")
 
     def load(file_path, img_size):
         img = tf.io.read_file(file_path)
