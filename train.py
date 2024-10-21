@@ -7,9 +7,10 @@ from keras_cv.losses import FocalLoss
 from data_loader import create_fixed_train, create_tensorset
 import pandas as pd
 import numpy as np
+import os
 
 
-def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size=224, model_name=None, is_fine_tuning=False):
+def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size=224, model_name=None, is_fine_tuning=False, combined_df=None):
 
     class NewDatasetCallback(keras.callbacks.Callback):
         def __init__(self, config, combined_df=None):
@@ -54,9 +55,14 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
 
 
     callbacks = [
-        keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, mode='min'),
-        keras.callbacks.ReduceLROnPlateau(factor=0.2, patience=5, mode='min'),
-        NewDatasetCallback(config),
+        keras.callbacks.ModelCheckpoint(
+            filepath=os.path.join(config['data']['output_dir'], f'{model_name}_best_model.keras'),
+            save_best_only=True,
+            monitor='val_loss',
+            mode='min'
+        ),
+        keras.callbacks.EarlyStopping(patience=config['training']['early_stopping_patience'], restore_best_weights=True),
+        NewDatasetCallback(config, combined_df)
     ]
 
 
