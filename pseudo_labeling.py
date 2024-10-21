@@ -23,7 +23,8 @@ def generate_pseudo_labels(model, unlabeled_data_dir, config, model_name):
         batch_size=batch_size, 
         magnitude=0, # no augmentation on test set
         ds_name="test", # set to test to turn off augmentation
-        model_name=model_name  # Pass the model_name here
+        model_name=model_name,
+        config=config  # Pass the config here
     )
     test_pred_raw = model.predict(no_label_set)
     test_pred = np.argmax(test_pred_raw, axis=1)
@@ -65,7 +66,8 @@ def retrain_with_pseudo_labels(model, combined_df, config, model_name):
                                     config['data']['batch_size'],
                                     config['data'].get('augmentation_magnitude', 0.3),
                                     ds_name="train",
-                                    model_name=model_name)
+                                    model_name=model_name,
+                                    config=config)  # Pass the config here
     else:
         num_samples = min(config['pseudo_labeling'].get('num_samples_per_epoch', len(combined_df)), len(combined_df))
         initial_sample = combined_df.sample(n=num_samples, replace=False)
@@ -74,7 +76,8 @@ def retrain_with_pseudo_labels(model, combined_df, config, model_name):
                                     config['data']['batch_size'],
                                     config['data'].get('augmentation_magnitude', 0.3),
                                     ds_name="train",
-                                    model_name=model_name)
+                                    model_name=model_name,
+                                    config=config)  # Pass the config here
 
     _, val_ds, _, _, _, _ = load_data(config, model_name)  # Get val_ds
 
