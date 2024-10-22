@@ -80,7 +80,7 @@ def main():
         # Get weights_path from config, defaulting to None if not present
         weights_path = config['data'].get('weights_path')
         
-        model = create_model(model_name, num_classes=num_classes, config=config, weights_path=weights_path)
+        model = create_model(model_name, config=config, weights_path=weights_path)
         print(f"Model output shape: {model.output_shape}")
            
         # Initial training with frozen base model
