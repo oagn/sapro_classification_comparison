@@ -100,7 +100,7 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
             img = img[..., ::-1]  # RGB to BGR
             img -= mean
             return img
-        elif model_name in ['MobileNetV3L', 'MobileNetV3S', 'EfficientNetV2B0', 'EfficientNetV2S']:
+        elif model_name in ['MobileNetV3L', 'MobileNetV3S', 'EfficientNetV2B0', 'EfficientNetV2S','EfficientNetV2M']:
             return img  # No preprocessing needed, it's built into the model
         else:
             raise ValueError(f"Unknown model name: {model_name}")

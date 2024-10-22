@@ -1,5 +1,5 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/Possum_classification/continued_pseudo_labeling_95_run'
+  output_dir: '/scratch/c.c1767198/output/Possum_classification/straight_run_M'
   train_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/train'
   val_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/validate'
   test_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/test'
@@ -22,10 +22,14 @@ models:
   #  img_size: 224
   #  num_dense_layers: 256
   #  unfreeze_layers: 198
-  EfficientNetV2S:
-    img_size: 300
+  #EfficientNetV2S:
+  #  img_size: 300
+  #  num_dense_layers: 512
+  #  unfreeze_layers: 363
+  EfficientNetV2M:
+    img_size: 384
     num_dense_layers: 512
-    unfreeze_layers: 363
+    unfreeze_layers: 348
   #ResNet50:
   #  img_size: 224
   #  num_dense_layers: 128
@@ -44,13 +48,13 @@ sampling:
   use_weights: false  # Set this to false to disable weights
   method: mild_square_root
   power: 0.3
-  #samples_per_class: 1300  # Optional: specify the number of samples per class, or omit to use the minimum class size
+  samples_per_class: 1300  # Optional: specify the number of samples per class, or omit to use the minimum class size
 
-pseudo_labeling:
-  model_name: 'EfficientNetV2S'
-  model_path: '/scratch/c.c1767198/output/Possum_classification/wildlife_weights_run/EfficientNetV2S_model_final.keras'
-  unlabeled_data_dir: '/scratch/c.c1767198/data/possums/unlabeled_possums'
-  confidence_threshold: 0.8  # or even 0.5, depending on your needs
-  retraining_epochs: 20
-  use_all_samples: false  # Set to true to use all samples, false to use a subset
-  num_samples_per_epoch: 1300  # Number of samples to use if not using all
+#pseudo_labeling:
+#  model_name: 'EfficientNetV2S'
+#  model_path: '/scratch/c.c1767198/output/Possum_classification/wildlife_weights_run/EfficientNetV2S_model_final.keras'
+#  unlabeled_data_dir: '/scratch/c.c1767198/data/possums/unlabeled_possums'
+#  confidence_threshold: 0.9  # or even 0.5, depending on your needs
+#  retraining_epochs: 20
+#  use_all_samples: false  # Set to true to use all samples, false to use a subset
+#  num_samples_per_epoch: 1300  # Number of samples to use if not using all

@@ -34,6 +34,13 @@ def create_model(model_name, config, weights_path=None):
             weights='imagenet',
             pooling='avg'
         )
+    elif model_name == 'EfficientNetV2M':
+        base_model = keras.applications.EfficientNetV2M(
+            input_shape=(img_size, img_size, 3),
+            include_top=False,
+            weights='imagenet',
+            pooling='avg'
+        )
     elif model_name == 'ResNet50':
         base_model = keras.applications.ResNet50(
             input_shape=(img_size, img_size, 3),
