@@ -73,12 +73,14 @@ def main():
                 for i, element in enumerate(batch):
                     print(f"Element {i} shape: {element.shape}")
 
-        steps_per_epoch = num_train_samples // config['data']['batch_size']
-        if steps_per_epoch == 0:
-            steps_per_epoch = 1  # Ensure at least one step per epoch
-        validation_steps = num_val_samples // config['data']['batch_size']
-
-        model = create_model(model_name, num_classes=2, config=config)
+        num_classes = config['data']['num_classes']
+        print(f"Creating model with {num_classes} classes")
+        
+        # Get weights_path from config, defaulting to None if not present
+        weights_path = config['data'].get('weights_path')
+        
+        model = create_model(model_name, config=config, weights_path=weights_path)
+        print(f"Model output shape: {model.output_shape}")
            
         # Initial training with frozen base model
         print("Initial training with frozen base model...")
@@ -118,7 +120,7 @@ def main():
         plot_training_history(history_unfrozen, f"{model_name}_unfrozen", output_dir)
         
         print(f"Evaluating {model_name}...")
-        eval_results = evaluate_model(model, config['data']['test_dir'], ['healthy','sapro'], 
+        eval_results = evaluate_model(model, config['data']['test_dir'], config['data']['class_names'], 
                                       batch_size=config['data']['batch_size'], 
                                       img_size=config['models'][model_name]['img_size'], 
                                       output_path=config['data']['output_dir'])
