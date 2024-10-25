@@ -44,7 +44,7 @@ def main():
 
     for model_name in config['models']:
         print(f"Training {model_name}...")
-        train_ds, val_ds, test_ds, num_train_samples, num_val_samples = load_data(config, model_name)
+        train_ds, val_ds, test_ds, num_train_samples, num_val_samples, train_df = load_data(config, model_name)
         print(f"Number of training samples: {num_train_samples}")
         print(f"Number of validation samples: {num_val_samples}")
 
