@@ -11,7 +11,7 @@ data:
   num_classes: 3
   class_names: ['0', '12', '99']
   weights_path: '/scratch/c.c1767198/output/V2M_wildlife_no_possum.weights.h5'
-  weights_path: null
+  #weights_path: null
 
 models:
   #MobileNetV3S:
