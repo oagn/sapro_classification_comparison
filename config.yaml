@@ -1,39 +1,39 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/Possum_classification/wildlife_weights_run_M'
-  train_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/train'
-  val_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/validate'
-  test_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/test'
-  #train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_all_EA_usergroup/train'
-  #val_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_all_EA_usergroup/val'
-  #test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_all_EA_usergroup/test'
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/both_classes_no_group'
+  #train_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/train'
+  #val_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/validate'
+  #test_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/test'
+  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_both_classes_nogroup/train'
+  val_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_both_classes_nogroup/val'
+  test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_both_classes_nogroup/test'
   batch_size: 32
   augmentation_magnitude: 0.6  # Adjust this value as needed
-  num_classes: 3
-  class_names: ['0', '12', '99']
-  weights_path: '/scratch/c.c1767198/output/V2M_wildlife_no_possum.weights.h5'
-  #weights_path: null
+  num_classes: 2
+  class_names: ['healthy','sapro']
+  #weights_path: '/scratch/c.c1767198/output/V2M_wildlife_no_possum.weights.h5'
+  weights_path: null
 
 models:
-  #MobileNetV3S:
-  #  img_size: 224
-  #  num_dense_layers: 128
-  #  unfreeze_layers: 52
-  #EfficientNetV2B0:
-  #  img_size: 224
-  #  num_dense_layers: 256
-  #  unfreeze_layers: 198
-  #EfficientNetV2S:
-  #  img_size: 300
-  #  num_dense_layers: 512
-  #  unfreeze_layers: 363
-  EfficientNetV2M:
-    img_size: 384
+  MobileNetV3S:
+    img_size: 224
+    num_dense_layers: 128
+    unfreeze_layers: 52
+  EfficientNetV2B0:
+    img_size: 224
+    num_dense_layers: 256
+    unfreeze_layers: 198
+  EfficientNetV2S:
+    img_size: 300
     num_dense_layers: 512
-    unfreeze_layers: 348
-  #ResNet50:
-  #  img_size: 224
-  #  num_dense_layers: 128
-  #  unfreeze_layers: 36
+    unfreeze_layers: 363
+  #EfficientNetV2M:
+  #  img_size: 384
+  #  num_dense_layers: 512
+  #  unfreeze_layers: 348
+  ResNet50:
+    img_size: 224
+    num_dense_layers: 128
+    unfreeze_layers: 36
 
 training:
   initial_epochs: 20
