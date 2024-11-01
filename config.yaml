@@ -1,5 +1,5 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/onco_no_group_4'
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/onco_no_group_5'
   #train_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/train'
   #val_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/validate'
   #test_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/test'
