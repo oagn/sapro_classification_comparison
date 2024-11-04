@@ -1,11 +1,11 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/onco_user_grouped_5'
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/all_user_grouped_2'
   #train_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/train'
   #val_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/validate'
   #test_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/test'
-  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_onco_EA_usergroup/train'
-  val_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_onco_EA_usergroup/val'
-  test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_onco_EA_usergroup/test'
+  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_all_EA_usergroup/train'
+  val_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_all_EA_usergroup/val'
+  test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_all_EA_usergroup/test'
   batch_size: 32
   augmentation_magnitude: 0.6  # Adjust this value as needed
   num_classes: 2
