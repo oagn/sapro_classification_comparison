@@ -1,5 +1,5 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/salmo_user_grouped_mild_sqrt'
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/salmo_user_grouped_M0.7'
   #train_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/train'
   #val_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/validate'
   #test_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/test'
@@ -7,7 +7,7 @@ data:
   val_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_salmo_EA_usergroup/val'
   test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_salmo_EA_usergroup/test'
   batch_size: 32
-  augmentation_magnitude: 0.6  # Adjust this value as needed
+  augmentation_magnitude: 0.7  # Adjust this value as needed
   num_classes: 2
   class_names: ['healthy','sapro']
   #weights_path: '/scratch/c.c1767198/output/V2M_wildlife_no_possum.weights.h5'
@@ -45,7 +45,7 @@ training:
   early_stopping_patience: 10  # Add this line, adjust the value as needed
 
 sampling:
-  use_weights: true  # Set this to false to disable weights
+  use_weights: false  # Set this to false to disable weights
   method: mild_square_root
   power: 0.3
   samples_per_class: 400  # Optional: specify the number of samples per class, or omit to use the minimum class size
