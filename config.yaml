@@ -1,11 +1,11 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/all_no_group_5'
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/salmo_user_grouped_n400'
   #train_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/train'
   #val_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/validate'
   #test_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/test'
-  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_saprolegnia_all_nogroup/train'
-  val_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_saprolegnia_all_nogroup/val'
-  test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_saprolegnia_all_nogroup/test'
+  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_salmo_EA_usergroup/train'
+  val_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_salmo_EA_usergroup/val'
+  test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_salmo_EA_usergroup/test'
   batch_size: 32
   augmentation_magnitude: 0.6  # Adjust this value as needed
   num_classes: 2
@@ -48,7 +48,7 @@ sampling:
   use_weights: false  # Set this to false to disable weights
   method: mild_square_root
   power: 0.3
-  samples_per_class: 1300  # Optional: specify the number of samples per class, or omit to use the minimum class size
+  samples_per_class: 400  # Optional: specify the number of samples per class, or omit to use the minimum class size
 
 #pseudo_labeling:
 #  model_name: 'EfficientNetV2S'
