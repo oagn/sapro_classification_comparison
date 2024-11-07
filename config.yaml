@@ -1,5 +1,5 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/salmo_user_grouped_n400'
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/salmo_user_grouped_mild_sqrt'
   #train_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/train'
   #val_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/validate'
   #test_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/test'
@@ -45,7 +45,7 @@ training:
   early_stopping_patience: 10  # Add this line, adjust the value as needed
 
 sampling:
-  use_weights: false  # Set this to false to disable weights
+  use_weights: true  # Set this to false to disable weights
   method: mild_square_root
   power: 0.3
   samples_per_class: 400  # Optional: specify the number of samples per class, or omit to use the minimum class size
