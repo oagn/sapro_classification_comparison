@@ -1,5 +1,5 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/salmo_user_grouped_M0.5'
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/salmo_user_grouped_M0.7'
   #train_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/train'
   #val_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/validate'
   #test_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/test'
@@ -7,7 +7,7 @@ data:
   val_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_salmo_EA_usergroup/val'
   test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_salmo_EA_usergroup/test'
   batch_size: 32
-  augmentation_magnitude: 0.4  # Adjust this value as needed
+  augmentation_magnitude: 0.7  # Adjust this value as needed
   num_classes: 2
   class_names: ['healthy','sapro']
   #weights_path: '/scratch/c.c1767198/output/V2M_wildlife_no_possum.weights.h5'
