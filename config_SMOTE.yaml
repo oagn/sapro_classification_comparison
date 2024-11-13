@@ -1,0 +1,41 @@
+data:
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/SMOTE_salmo_user_grouped_M0.6'
+  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/salmo_usergroup_nfold/train'
+  test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/salmo_usergroup_nfold/test'
+  batch_size: 32
+  augmentation_magnitude: 0.6  # Adjust this value as needed
+  num_classes: 2
+  class_names: ['healthy','sapro']
+  #weights_path: '/scratch/c.c1767198/output/V2M_wildlife_no_possum.weights.h5'
+  weights_path: null
+
+models:
+  #MobileNetV3S:
+  #  img_size: 224
+  #  num_dense_layers: 128
+  #  unfreeze_layers: 52
+  #EfficientNetV2B0:
+  #  img_size: 224
+  #  num_dense_layers: 256
+  #  unfreeze_layers: 198
+  EfficientNetV2S:
+    img_size: 300
+    num_dense_layers: 512
+    unfreeze_layers: 363
+  #EfficientNetV2M:
+  #  img_size: 384
+  #  num_dense_layers: 512
+  #  unfreeze_layers: 348
+ # ResNet50:
+ #   img_size: 224
+ #   num_dense_layers: 128
+ #   unfreeze_layers: 36
+
+training:
+  initial_epochs: 20
+  fine_tuning_epochs: 40
+  learning_rate: 0.001
+  fine_tuning_lr: 0.00001
+  focal_loss_gamma: 2.0
+  new_dataset_per_epoch: true  # Set to true to enable new dataset creation per epoch
+  early_stopping_patience: 10  # Add this line, adjust the value as needed

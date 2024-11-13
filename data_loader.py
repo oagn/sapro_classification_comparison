@@ -9,6 +9,8 @@ from pathlib import Path
 import os
 from collections import Counter
 from keras.applications import resnet
+from sklearn.model_selection import train_test_split, StratifiedKFold
+from imblearn.over_sampling import SMOTE
 
 
 def create_fixed_train(ds_path, samples_per_class=None):
@@ -301,6 +303,125 @@ def load_data(config, model_name):
     print(f"Loaded {num_train_samples} training samples, {len(val_df)} validation samples, and {len(test_df)} test samples")
 
     return train_ds, val_ds, test_ds, num_train_samples, len(val_df), train_df  # Add train_df to the return statement
+
+def create_train_test_split(df, test_size=0.2, random_state=42):
+    """
+    Create initial train-test split with held-out test set
+    """
+    train_df, test_df = train_test_split(
+        df, 
+        test_size=test_size, 
+        random_state=random_state, 
+        stratify=df['sapro']
+    )
+    return train_df, test_df
+
+def create_dataset(features, labels, batch_size=32, shuffle=True):
+    """
+    Create TensorFlow dataset
+    """
+    dataset = tf.data.Dataset.from_tensor_slices((features, labels))
+    if shuffle:
+        dataset = dataset.shuffle(buffer_size=len(features))
+    dataset = dataset.batch(batch_size)
+    return dataset
+
+def prepare_fold_data(X_train, y_train, X_val, y_val, batch_size=32, random_state=42):
+    """
+    Prepare data for a single fold with SMOTE
+    """
+    # Apply SMOTE to training data
+    smote = SMOTE(random_state=random_state)
+    X_train_balanced, y_train_balanced = smote.fit_resample(X_train, y_train)
+    
+    # Convert to float32/int32 for TensorFlow
+    X_train_balanced = X_train_balanced.astype('float32')
+    y_train_balanced = y_train_balanced.astype('int32')
+    X_val = X_val.astype('float32')
+    y_val = y_val.astype('int32')
+    
+    # Create TensorFlow datasets
+    train_dataset = create_dataset(X_train_balanced, y_train_balanced, batch_size=batch_size)
+    val_dataset = create_dataset(X_val, y_val, batch_size=batch_size, shuffle=False)
+    
+    return train_dataset, val_dataset
+
+def prepare_cross_validation_data(data_dir, config, model_name, n_splits=5, random_state=42):
+    """
+    Prepare data for k-fold cross validation with image data
+    """
+    # Load all image paths and labels from the training directory
+    df = create_fixed(data_dir)
+    
+    # Create stratified k-fold splits
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    
+    # Get parameters from config
+    img_size = config['models'][model_name]['img_size']
+    batch_size = config['data']['batch_size']
+    augmentation_magnitude = config['data'].get('augmentation_magnitude', 0.3)
+    
+    # Generate fold datasets
+    fold_datasets = []
+    for fold_idx, (train_idx, val_idx) in enumerate(skf.split(df, df['Label'])):
+        # Split dataframe into train and validation for this fold
+        train_fold_df = df.iloc[train_idx].reset_index(drop=True)
+        val_fold_df = df.iloc[val_idx].reset_index(drop=True)
+        
+        # Create datasets for this fold
+        train_dataset = create_tensorset(
+            train_fold_df,
+            img_size,
+            batch_size,
+            augmentation_magnitude,
+            ds_name="train",
+            model_name=model_name,
+            config=config
+        )
+        
+        val_dataset = create_tensorset(
+            val_fold_df,
+            img_size,
+            batch_size,
+            0,  # No augmentation for validation
+            ds_name="validation",
+            model_name=model_name,
+            config=config
+        )
+        
+        fold_datasets.append((train_dataset, val_dataset))
+        
+        print(f"Fold {fold_idx + 1}:")
+        print(f"Training samples: {len(train_fold_df)}")
+        print(f"Validation samples: {len(val_fold_df)}")
+        print("Class distribution in training:")
+        print(train_fold_df['Label'].value_counts())
+        print("Class distribution in validation:")
+        print(val_fold_df['Label'].value_counts())
+        print()
+    
+    # Create test dataset
+    test_df = create_fixed(config['data']['test_dir'])
+    test_dataset = create_tensorset(
+        test_df,
+        img_size,
+        batch_size,
+        0,  # No augmentation for test
+        ds_name="test",
+        model_name=model_name,
+        config=config
+    )
+    
+    return fold_datasets, test_dataset
+
+def get_class_weights(df, label_col='sapro'):
+    """
+    Calculate class weights for weighted loss function
+    """
+    class_counts = df[label_col].value_counts()
+    total = len(df)
+    weights = {i: total/(2*count) for i, count in class_counts.items()}
+    return weights
 
 
 
