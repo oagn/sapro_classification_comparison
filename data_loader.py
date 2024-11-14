@@ -110,21 +110,29 @@ def load_and_preprocess_image(path, img_size, model_name):
 
 def augment_image(image, magnitude):
     """
-    Apply data augmentation to an image using values from literature
+    Apply data augmentation to an image using values from plant disease literature
     References:
-    - RandAugment: https://arxiv.org/abs/1909.13719
-    - ImageNet Training: https://arxiv.org/abs/2110.00476
+    - Too et al., 2019: https://doi.org/10.1016/j.compag.2018.10.045
+    - Ramcharan et al., 2017: https://doi.org/10.3389/fpls.2017.01852
     """
+    value_range = (0, 1)  # Since we normalized our images to [0,1]
+    
     augmenter = keras_cv.layers.RandAugment(
-        value_range=(0, 1),
+        value_range=value_range,
         magnitude=magnitude,
         augmentations=[
-            keras_cv.layers.RandomBrightness(factor=0.4),      # ±40% from ImageNet practices
-            keras_cv.layers.RandomContrast(factor=0.4),        # ±40% from ImageNet practices
-            keras_cv.layers.RandomFlip(mode="horizontal"),     # Standard in most papers
-            keras_cv.layers.RandomRotation(factor=0.17),       # ±30 degrees converted to radians
+            keras_cv.layers.RandomBrightness(
+                factor=0.4,
+                value_range=value_range
+            ), # From Ramcharan et al.
+            keras_cv.layers.RandomContrast(
+                factor=0.4,
+                value_range=value_range
+            ),
+            keras_cv.layers.RandomFlip(mode="horizontal_and_vertical"), # Common in plant datasets
+            keras_cv.layers.RandomRotation(factor=0.26),# ±45° from Ramcharan
             keras_cv.layers.RandomZoom(
-                height_factor=(-0.3, 0.3),                     # ±30% from ImageNet practices
+                height_factor=(-0.3, 0.3),
                 width_factor=(-0.3, 0.3)
             )
         ]
