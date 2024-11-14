@@ -1,19 +1,15 @@
-import os
-from pathlib import Path
-import numpy as np
-import pandas as pd
 import tensorflow as tf
-import keras
 import keras_cv
-from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import LabelEncoder
-from sklearn.utils.class_weight import compute_class_weight
-from PIL import Image
-import matplotlib.pyplot as plt
-import seaborn as sns
+import keras
+import numpy as np
+import jax.numpy as jnp
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+import pandas as pd
+from pathlib import Path
+import os
 from collections import Counter
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.model_selection import train_test_split
+from keras.applications import resnet
+from sklearn.model_selection import train_test_split, StratifiedKFold
 from imblearn.over_sampling import SMOTE
 
 
@@ -56,32 +52,80 @@ def create_fixed(ds_path):
 
 
 def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sample_weights=None, model_name=None, config=None):
-    """Create dataset with proper label shapes"""
     in_path = in_df['File'].values
     
-    # Configure RandAugment
-    rand_aug = keras_cv.layers.RandAugment(
-        value_range=(0, 255),
-        augmentations_per_image=3,
-        magnitude=magnitude
-    )
-
-    # Convert string labels to integers using LabelEncoder
-    label_encoder = LabelEncoder()
-    in_class = label_encoder.fit_transform(in_df['Label'].values)
-    
-    # Handle labels based on number of classes
-    num_classes = len(config['data']['class_names'])
-    if num_classes > 2:
-        # Multi-class: use one-hot encoding
-        labels = keras.utils.to_categorical(in_class, num_classes=num_classes)
+    if config is not None and 'data' in config and 'class_names' in config['data']:
+        # Create a mapping from string labels to integer indices
+        class_names = config['data']['class_names']
+        label_to_index = {label: index for index, label in enumerate(class_names)}
+        
+        # Convert string labels to integer indices
+        in_class = in_df['Label'].map(label_to_index)
+        
+        # Check for NaN values (labels not in the mapping)
+        if in_class.isna().any():
+            print("Warning: Some labels are not in the class_names list:")
+            print(in_df[in_class.isna()]['Label'].value_counts())
+            # Fill NaN values with a default value (e.g., -1)
+            in_class = in_class.fillna(-1)
+        
+        in_class = in_class.values
+        
+        # Ensure all values are non-negative integers
+        if (in_class < 0).any():
+            print("Warning: Negative label indices found. Setting them to 0.")
+            in_class[in_class < 0] = 0
+        
+        in_class = in_class.astype(int)
+        
+        # One-hot encode the integer indices
+        in_class = tf.keras.utils.to_categorical(in_class, num_classes=len(class_names))
     else:
-        # Binary: use single column
-        labels = in_class.reshape(-1, 1)
-    
+        # Fallback to the previous method if config is not available
+        label_encoder = LabelEncoder()
+        in_class = label_encoder.fit_transform(in_df['Label'].values)
+        in_class = in_class.reshape(len(in_class), 1)
+        one_hot_encoder = OneHotEncoder(sparse_output=False)
+        in_class = one_hot_encoder.fit_transform(in_class)
+
+    def load(file_path, img_size):
+        img = tf.io.read_file(file_path)
+        img = tf.image.decode_image(img, channels=3, expand_animations=False)
+        img = tf.image.resize(img, [img_size, img_size])
+        img = tf.cast(img, tf.float32)
+        return img
+
+    def get_base_model_name(model_name):
+        """Extract base model name from potentially modified name (e.g., with fold number)"""
+        # Split the model name by underscore and take the first part
+        base_name = model_name.split('_')[0]
+        return base_name
+
+    def preprocess(img, model_name):
+        """
+        Preprocess image according to model requirements
+        """
+        # Extract base model name
+        base_model_name = get_base_model_name(model_name)
+        
+        if base_model_name == 'ResNet50':
+            # ResNet50 preprocessing
+            # Manual implementation of ResNet50 preprocessing
+            mean = tf.constant([103.939, 116.779, 123.68], dtype=tf.float32)
+            img = img[..., ::-1]  # RGB to BGR
+            img -= mean
+            return img
+        elif base_model_name in ['MobileNetV3L', 'MobileNetV3S', 'EfficientNetV2B0', 'EfficientNetV2S','EfficientNetV2M']:
+            return img  # No preprocessing needed, it's built into the model
+        else:
+            raise ValueError(f"Unknown model name: {base_model_name}")
+
+    rand_aug = keras_cv.layers.RandAugment(
+        value_range=(0, 255), augmentations_per_image=3, magnitude=magnitude)
+
     if ds_name == "train" and sample_weights is not None:
         # Include sample weights in the dataset
-        ds = tf.data.Dataset.from_tensor_slices((in_path, labels, sample_weights))
+        ds = tf.data.Dataset.from_tensor_slices((in_path, in_class, sample_weights))
         ds = (ds
             .map(lambda img_path, img_class, weight: (load(img_path, img_size), img_class, weight), 
                  num_parallel_calls=tf.data.AUTOTUNE)
@@ -90,37 +134,34 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
                  num_parallel_calls=tf.data.AUTOTUNE)
             .map(lambda x, y, w: (preprocess(x, model_name), y, w),
                  num_parallel_calls=tf.data.AUTOTUNE)
-            .prefetch(tf.data.AUTOTUNE))
+            .prefetch(tf.data.AUTOTUNE)
+        )
     else:
-        # Dataset without sample weights
-        ds = tf.data.Dataset.from_tensor_slices((in_path, labels))
+        # Don't include sample weights for validation and test sets, or when weights are not used
+        ds = tf.data.Dataset.from_tensor_slices((in_path, in_class))
         ds = (ds
-            .map(lambda img_path, img_class: (load(img_path, img_size), img_class),
+            .map(lambda img_path, img_class: (load(img_path, img_size), img_class), 
                  num_parallel_calls=tf.data.AUTOTUNE)
             .batch(batch_size)
             .map(lambda x, y: (preprocess(x, model_name), y),
                  num_parallel_calls=tf.data.AUTOTUNE)
-            .prefetch(tf.data.AUTOTUNE))
+        )
+        if ds_name == "train":
+            ds = ds.map(lambda x, y: (rand_aug(tf.cast(x, tf.uint8)), y), 
+                        num_parallel_calls=tf.data.AUTOTUNE)
+        ds = ds.prefetch(tf.data.AUTOTUNE)
+
+    if ds_name == "train":
+        ds = ds.shuffle(buffer_size=len(in_df), reshuffle_each_iteration=True)
+        #ds = ds.repeat()
+
+    print("Unique labels in the dataset:", in_df['Label'].unique())
+    print("Class names from config:", config['data']['class_names'])
+    
+    # After creating in_class
+    print("Unique values in in_class:", np.unique(in_class, return_counts=True))
     
     return ds
-
-def load(path, img_size):
-    """Load and resize image"""
-    img = tf.io.read_file(path)
-    img = tf.image.decode_jpeg(img, channels=3)
-    img = tf.image.resize(img, [img_size, img_size])
-    return img
-
-def preprocess(img, model_name):
-    """
-    Preprocess image based on model requirements
-    """
-    if model_name.startswith('ResNet'):
-        # ResNet preprocessing expects input in [0, 255]
-        from keras.applications.resnet import preprocess_input
-        return preprocess_input(img)
-    else:
-        return tf.cast(img, tf.float32) / 255.0
 
 def print_dsinfo(ds_df, ds_name='default'):
     print('Dataset: ' + ds_name)
@@ -359,8 +400,6 @@ def prepare_cross_validation_data(data_dir, config, model_name, n_splits=5, rand
     """
     Prepare data for k-fold cross validation with image data and class balancing
     """
-    use_weights = config['training'].get('use_class_weights', False)
-
     # Load all image paths and labels
     df = create_fixed(data_dir)
     
@@ -384,10 +423,7 @@ def prepare_cross_validation_data(data_dir, config, model_name, n_splits=5, rand
         class_weights = calculate_class_weights(train_fold_df, method='effective')
         
         # Convert class weights to sample weights
-        if use_weights:
-            sample_weights = train_fold_df['Label'].map(class_weights).values
-        else:
-            sample_weights = None
+        sample_weights = train_fold_df['Label'].map(class_weights).values
         
         # Create datasets
         train_dataset = create_tensorset(
@@ -444,7 +480,3 @@ def get_class_weights(df, label_col='sapro'):
     total = len(df)
     weights = {i: total/(2*count) for i, count in class_counts.items()}
     return weights
-
-
-
-

@@ -5,58 +5,12 @@ from jax.experimental.mesh_utils import create_device_mesh
 from jax.sharding import Mesh
 from keras_cv.losses import FocalLoss
 from data_loader import create_fixed_train, create_tensorset
-from models import create_model, unfreeze_model
 import pandas as pd
 import numpy as np
 import os
 
-class PredictionDistributionCallback(keras.callbacks.Callback):
-    def __init__(self, val_data):
-        super().__init__()
-        self.val_data = val_data
-    
-    def on_epoch_end(self, epoch, logs=None):
-        try:
-            # Get predictions batch by batch
-            all_preds = []
-            for batch in self.val_data:
-                x = batch[0]  # Get images from the batch tuple
-                pred = self.model.predict(x, verbose=0)
-                all_preds.append(pred)
-            
-            # Combine predictions
-            val_pred = np.concatenate(all_preds)
-            pos_pred = np.mean(val_pred > 0.5)
-            
-            # Print statistics
-            print(f"\nPrediction distribution: {pos_pred:.3%} positive")
-            print(f"Prediction stats: min={np.min(val_pred):.3f}, max={np.max(val_pred):.3f}, "
-                  f"mean={np.mean(val_pred):.3f}, std={np.std(val_pred):.3f}")
-        except Exception as e:
-            print(f"\nWarning: Could not compute prediction distribution: {str(e)}")
 
-class WarmUpCosineDecay(keras.callbacks.Callback):
-    def __init__(self, initial_lr, warmup_steps, total_steps):
-        super().__init__()
-        self.initial_lr = initial_lr
-        self.warmup_steps = warmup_steps
-        self.total_steps = total_steps
-        self.current_step = 0
-        
-    def on_batch_begin(self, batch, logs=None):
-        self.current_step += 1
-        if self.current_step <= self.warmup_steps:
-            # Linear warmup
-            lr = (self.current_step / self.warmup_steps) * self.initial_lr
-        else:
-            # Cosine decay
-            progress = (self.current_step - self.warmup_steps) / (self.total_steps - self.warmup_steps)
-            lr = self.initial_lr * 0.5 * (1 + np.cos(np.pi * progress))
-        
-        # For JAX backend
-        self.model.optimizer.learning_rate.assign(lr)
-
-def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size, model_name, is_fine_tuning):
+def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size, model_name, is_fine_tuning=False):
     """
     Train the model with JAX backend and class weights
     """
@@ -76,26 +30,18 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
     else:
         mesh = None
 
-    # Set learning rate and warmup
-    initial_lr = learning_rate
-    steps_per_epoch = len(train_ds)
-    total_steps = steps_per_epoch * epochs
-    warmup_steps = steps_per_epoch * 2  # 2 epochs of warmup
-    
     callbacks = [
         keras.callbacks.EarlyStopping(
             monitor='val_loss',
             patience=config['training']['early_stopping_patience'],
             restore_best_weights=True
         ),
-        keras.callbacks.ModelCheckpoint(
-            filepath=os.path.join(config['data']['output_dir'], f'{model_name}_best.keras'),
+        keras.callbacks.ReduceLROnPlateau(
             monitor='val_loss',
-            save_best_only=True,
-            verbose=1
-        ),
-        PredictionDistributionCallback(val_data=val_ds),
-        WarmUpCosineDecay(initial_lr, warmup_steps, total_steps)
+            factor=0.5,
+            patience=5,
+            min_lr=1e-6
+        )
     ]
 
     # Add model checkpoint for unfrozen phase
@@ -109,32 +55,16 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
             )
         )
 
-    optimizer = keras.optimizers.Adam(learning_rate=initial_lr)
-    
-    # Configure Focal Loss
-    num_classes = len(config['data']['class_names'])
-    #loss = FocalLoss(
-    #    gamma=config['training']['focal_loss_gamma'],
-    #    from_logits=False,  # Since we're using sigmoid/softmax activation
-    #    alpha=config['training'].get('focal_loss_alpha', 0.25),  # Default from paper
-    #    name="focal_loss"
-    #)
-
-    loss =keras.losses.BinaryFocalCrossentropy(
-        gamma=5.0,  # Increased from default 2.0 to focus more on hard examples
-        alpha=0.75,  # Increased from default 0.25 to focus more on positive class
-        label_smoothing=0.1
+    optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
+    loss = FocalLoss(
+        gamma=config['training']['focal_loss_gamma'],
+        from_logits=False,
     )
 
     # Compile and train with mesh if available
     if mesh:
         with mesh:
-            model.compile(
-                optimizer=optimizer,
-                loss=loss,
-                metrics=['accuracy'],
-                jit_compile=True
-            )
+            model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'], jit_compile=True)
             history = model.fit(
                 x=train_ds,
                 epochs=epochs,
@@ -142,12 +72,7 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
                 callbacks=callbacks
             )
     else:
-        model.compile(
-            optimizer=optimizer,
-            loss=loss,
-            metrics=['accuracy'],
-            jit_compile=True
-        )
+        model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'], jit_compile=True)
         history = model.fit(
             x=train_ds,
             epochs=epochs,
