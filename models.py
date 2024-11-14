@@ -49,9 +49,6 @@ def create_model(model_name, config):
         beta = -np.log((1 - pi) / pi)
         print(f"\nInitializing final layer bias with beta = {beta:.3f}")
         print(f"This corresponds to a positive class prior of {pi:.1%}")
-        
-        # Initialize final dense layer with bias
-        model.get_layer('predictions').bias.assign([beta])
     
     # Initialize the final layer with bias for Focal Loss
     if num_classes == 2:
