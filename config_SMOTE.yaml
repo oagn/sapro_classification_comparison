@@ -41,9 +41,9 @@ sampling:
 training:
   initial_epochs: 20
   fine_tuning_epochs: 40
-  learning_rate: 0.002
+  learning_rate: 0.001
   fine_tuning_lr: 0.0001
   focal_loss_gamma: 2.0
   new_dataset_per_epoch: false  # Set to true to enable new dataset creation per epoch
   early_stopping_patience: 10  # Add this line, adjust the value as needed
-  use_class_weights: false
+  use_class_weights: true

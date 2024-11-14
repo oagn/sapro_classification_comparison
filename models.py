@@ -54,7 +54,7 @@ def create_model(model_name, config):
     if num_classes == 2:
         # Binary classification
         outputs = keras.layers.Dense(
-            1,
+            2,
             activation='sigmoid',
             #bias_initializer=keras.initializers.Constant(beta),
             name='output'
