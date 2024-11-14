@@ -5,6 +5,7 @@ from jax.experimental.mesh_utils import create_device_mesh
 from jax.sharding import Mesh
 from keras_cv.losses import FocalLoss
 from data_loader import create_fixed_train, create_tensorset
+from models import create_model, unfreeze_model
 import pandas as pd
 import numpy as np
 import os
@@ -56,15 +57,25 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
         )
 
     optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
+    
+    # Configure Focal Loss
+    num_classes = len(config['data']['class_names'])
     loss = FocalLoss(
         gamma=config['training']['focal_loss_gamma'],
-        from_logits=False,
+        from_logits=False,  # Since we're using sigmoid/softmax activation
+        alpha=config['training'].get('focal_loss_alpha', 0.25),  # Default from paper
+        name="focal_loss"
     )
 
     # Compile and train with mesh if available
     if mesh:
         with mesh:
-            model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'], jit_compile=True)
+            model.compile(
+                optimizer=optimizer,
+                loss=loss,
+                metrics=['accuracy'],
+                jit_compile=True
+            )
             history = model.fit(
                 x=train_ds,
                 epochs=epochs,
@@ -72,7 +83,12 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
                 callbacks=callbacks
             )
     else:
-        model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'], jit_compile=True)
+        model.compile(
+            optimizer=optimizer,
+            loss=loss,
+            metrics=['accuracy'],
+            jit_compile=True
+        )
         history = model.fit(
             x=train_ds,
             epochs=epochs,

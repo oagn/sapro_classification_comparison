@@ -1,72 +1,75 @@
 import keras
-from keras import layers
+import numpy as np
+from keras.applications import (
+    ResNet50, ResNet101, ResNet152,
+    EfficientNetV2B0, EfficientNetV2B1, EfficientNetV2B2, EfficientNetV2B3,
+    EfficientNetV2S, EfficientNetV2M
+)
 
-def create_model(model_name, config, weights_path=None):
-    num_classes = len(config['data']['class_names'])
-    print(f"Creating model with {num_classes} output classes")
-    img_size = config['models'][model_name]['img_size']
+def get_base_model(model_name, config, weights_path=None):
+    """Get the base model architecture"""
+    input_shape = (config['models'][model_name]['img_size'],
+                  config['models'][model_name]['img_size'], 3)
     
-    if model_name == 'MobileNetV3L':
-        base_model = keras.applications.MobileNetV3Large(
-            input_shape=(img_size, img_size, 3),
-            include_top=False,
-            weights='imagenet',
-            pooling='avg'
-        )
-    elif model_name == 'MobileNetV3S':
-        base_model = keras.applications.MobileNetV3Small(
-            input_shape=(img_size, img_size, 3),
-            include_top=False,
-            weights='imagenet',
-            pooling='avg'
-        )
-    elif model_name == 'EfficientNetV2B0':
-        base_model = keras.applications.EfficientNetV2B0(
-            input_shape=(img_size, img_size, 3),
-            include_top=False,
-            weights='imagenet',
-            pooling='avg'
-        )
-    elif model_name == 'EfficientNetV2S':
-        base_model = keras.applications.EfficientNetV2S(
-            input_shape=(img_size, img_size, 3),
-            include_top=False,
-            weights='imagenet',
-            pooling='avg'
-        )
-    elif model_name == 'EfficientNetV2M':
-        base_model = keras.applications.EfficientNetV2M(
-            input_shape=(img_size, img_size, 3),
-            include_top=False,
-            weights='imagenet',
-            pooling='avg'
-        )
-    elif model_name == 'ResNet50':
-        base_model = keras.applications.ResNet50(
-            input_shape=(img_size, img_size, 3),
-            include_top=False,
-            weights='imagenet',
-            pooling='avg'
-        )
+    if model_name.startswith('ResNet50'):
+        return ResNet50(weights='imagenet', include_top=False, input_shape=input_shape)
+    elif model_name.startswith('ResNet101'):
+        return ResNet101(weights='imagenet', include_top=False, input_shape=input_shape)
+    elif model_name.startswith('ResNet152'):
+        return ResNet152(weights='imagenet', include_top=False, input_shape=input_shape)
+    # ... other model options ...
     else:
         raise ValueError(f"Unknown model name: {model_name}")
-    
-    # Freeze the base model
-    base_model.trainable = False
-    
-    x = layers.Dense(config['models'][model_name]['num_dense_layers'], activation='relu')(base_model.output)
-    x = layers.Dropout(0.2)(x)
-    outputs = layers.Dense(num_classes, activation='softmax', name='predictions')(x)
 
+def create_model(model_name, config):
+    """
+    Create model with proper initialization for Focal Loss
+    """
+    base_model = get_base_model(model_name, config)
+    
+    # Add classification head
+    x = base_model.output
+    x = keras.layers.Dense(config['models'][model_name]['num_dense_layers'], activation='relu')(x)
+    x = keras.layers.Dropout(0.2)(x)  # Add dropout for regularization
+    
+    # Initialize the final layer with bias for Focal Loss
+    num_classes = len(config['data']['class_names'])
+    if num_classes == 2:
+        # Binary classification
+        pi = 0.01  # Initial probability for positive class
+        bias_init = -np.log((1-pi)/pi)  # ≈ -2.0
+        outputs = keras.layers.Dense(
+            1,  # Binary classification needs only one output
+            activation='sigmoid',
+            bias_initializer=keras.initializers.Constant(bias_init),
+            name='focal_loss_output'
+        )(x)
+    else:
+        # Multi-class classification
+        pi = 0.01
+        bias_init = -np.log((1-pi)/pi)
+        outputs = keras.layers.Dense(
+            num_classes,
+            activation='softmax',
+            bias_initializer=keras.initializers.Constant(bias_init),
+            name='focal_loss_output'
+        )(x)
+    
     model = keras.Model(inputs=base_model.input, outputs=outputs)
+    
     
     if weights_path:
         print(f"Loading weights from {weights_path}")
         model.load_weights(weights_path, skip_mismatch=True)
     else:
         print("No pre-trained weights provided. Using imagenet weights.")
-    
-    print(f"Model created with output shape: {model.output_shape}")
+    # Freeze base model layers for initial training
+    for layer in base_model.layers:
+        layer.trainable = False
+        
+    print(f"\nModel created with Focal Loss initialization (bias = {bias_init:.3f})")
+    print(f"Number of classes: {num_classes}")
+    print(f"Output activation: {'sigmoid' if num_classes == 2 else 'softmax'}")
     
     return model
 
