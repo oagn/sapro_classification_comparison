@@ -35,6 +35,25 @@ class PredictionDistributionCallback(keras.callbacks.Callback):
         except Exception as e:
             print(f"\nWarning: Could not compute prediction distribution: {str(e)}")
 
+class WarmUpCosineDecay(keras.callbacks.Callback):
+    def __init__(self, initial_lr, warmup_steps, total_steps):
+        super().__init__()
+        self.initial_lr = initial_lr
+        self.warmup_steps = warmup_steps
+        self.total_steps = total_steps
+        self.current_step = 0
+        
+    def on_batch_begin(self, batch, logs=None):
+        self.current_step += 1
+        if self.current_step <= self.warmup_steps:
+            # Linear warmup
+            lr = (self.current_step / self.warmup_steps) * self.initial_lr
+        else:
+            # Cosine decay
+            progress = (self.current_step - self.warmup_steps) / (self.total_steps - self.warmup_steps)
+            lr = self.initial_lr * 0.5 * (1 + np.cos(np.pi * progress))
+        keras.backend.set_value(self.model.optimizer.learning_rate, lr)
+
 def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size, model_name, is_fine_tuning=False):
     """
     Train the model with JAX backend and class weights
@@ -55,17 +74,17 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
     else:
         mesh = None
 
+    # Set learning rate and warmup
+    initial_lr = learning_rate
+    steps_per_epoch = len(train_ds)
+    total_steps = steps_per_epoch * epochs
+    warmup_steps = steps_per_epoch * 2  # 2 epochs of warmup
+    
     callbacks = [
         keras.callbacks.EarlyStopping(
             monitor='val_loss',
             patience=config['training']['early_stopping_patience'],
             restore_best_weights=True
-        ),
-        keras.callbacks.ReduceLROnPlateau(
-            monitor='val_loss',
-            factor=0.5,
-            patience=5,
-            min_lr=1e-6
         ),
         keras.callbacks.ModelCheckpoint(
             filepath=os.path.join(config['data']['output_dir'], f'{model_name}_best.keras'),
@@ -73,7 +92,8 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
             save_best_only=True,
             verbose=1
         ),
-        PredictionDistributionCallback(val_data=val_ds)
+        PredictionDistributionCallback(val_data=val_ds),
+        WarmUpCosineDecay(initial_lr, warmup_steps, total_steps)
     ]
 
     # Add model checkpoint for unfrozen phase
@@ -87,7 +107,7 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
             )
         )
 
-    optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
+    optimizer = keras.optimizers.Adam(learning_rate=initial_lr)
     
     # Configure Focal Loss
     num_classes = len(config['data']['class_names'])
