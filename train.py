@@ -69,9 +69,7 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
                 x=train_ds,
                 epochs=epochs,
                 validation_data=val_ds,
-                callbacks=callbacks,
-                use_multiprocessing=True,
-                workers=4
+                callbacks=callbacks
             )
     else:
         model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'], jit_compile=True)
@@ -79,9 +77,7 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
             x=train_ds,
             epochs=epochs,
             validation_data=val_ds,
-            callbacks=callbacks,
-            use_multiprocessing=True,
-            workers=4
+            callbacks=callbacks
         )
 
     return history, model
