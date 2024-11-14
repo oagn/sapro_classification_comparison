@@ -58,7 +58,6 @@ def create_fixed(ds_path):
 def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sample_weights=None, model_name=None, config=None):
     """Create dataset with proper label shapes"""
     in_path = in_df['File'].values
-    in_class = in_df['Label'].values
     
     # Configure RandAugment
     rand_aug = keras_cv.layers.RandAugment(
@@ -66,6 +65,10 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
         augmentations_per_image=3,
         magnitude=magnitude
     )
+
+    # Convert string labels to integers using LabelEncoder
+    label_encoder = LabelEncoder()
+    in_class = label_encoder.fit_transform(in_df['Label'].values)
     
     # Handle labels based on number of classes
     num_classes = len(config['data']['class_names'])

@@ -76,15 +76,6 @@ def create_model(model_name, config):
     for layer in base_model.layers:
         layer.trainable = False
     
-    # Print model summary for debugging
-    print("\nModel Architecture:")
-    model.summary()
-    
-    print(f"\nModel created with Focal Loss initialization (bias = {bias_init:.3f})")
-    print(f"Number of classes: {num_classes}")
-    print(f"Output activation: {'sigmoid' if num_classes == 2 else 'softmax'}")
-    print(f"Output shape: {model.output_shape}")
-    
     return model
 
 
