@@ -113,11 +113,17 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
     
     # Configure Focal Loss
     num_classes = len(config['data']['class_names'])
-    loss = FocalLoss(
-        gamma=config['training']['focal_loss_gamma'],
-        from_logits=False,  # Since we're using sigmoid/softmax activation
-        alpha=config['training'].get('focal_loss_alpha', 0.25),  # Default from paper
-        name="focal_loss"
+    #loss = FocalLoss(
+    #    gamma=config['training']['focal_loss_gamma'],
+    #    from_logits=False,  # Since we're using sigmoid/softmax activation
+    #    alpha=config['training'].get('focal_loss_alpha', 0.25),  # Default from paper
+    #    name="focal_loss"
+    #)
+
+    loss =keras.losses.BinaryFocalCrossentropy(
+        gamma=5.0,  # Increased from default 2.0 to focus more on hard examples
+        alpha=0.75,  # Increased from default 0.25 to focus more on positive class
+        label_smoothing=0.1
     )
 
     # Compile and train with mesh if available

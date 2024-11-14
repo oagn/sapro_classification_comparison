@@ -56,16 +56,16 @@ def create_model(model_name, config):
         outputs = keras.layers.Dense(
             1,
             activation='sigmoid',
-            bias_initializer=keras.initializers.Constant(beta),
-            name='focal_loss_output'
+            #bias_initializer=keras.initializers.Constant(beta),
+            name='output'
         )(x)
     else:
         # Multi-class classification
         outputs = keras.layers.Dense(
             num_classes,
             activation='softmax',
-            bias_initializer=keras.initializers.Constant(beta),
-            name='focal_loss_output'
+            #bias_initializer=keras.initializers.Constant(beta),
+            name='output'
         )(x)
     
     model = keras.Model(inputs=base_model.input, outputs=outputs)
