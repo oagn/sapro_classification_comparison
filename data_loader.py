@@ -359,6 +359,8 @@ def prepare_cross_validation_data(data_dir, config, model_name, n_splits=5, rand
     """
     Prepare data for k-fold cross validation with image data and class balancing
     """
+    use_weights = config['training'].get('use_class_weights', False)
+
     # Load all image paths and labels
     df = create_fixed(data_dir)
     
@@ -382,7 +384,10 @@ def prepare_cross_validation_data(data_dir, config, model_name, n_splits=5, rand
         class_weights = calculate_class_weights(train_fold_df, method='effective')
         
         # Convert class weights to sample weights
-        sample_weights = train_fold_df['Label'].map(class_weights).values
+        if use_weights:
+            sample_weights = train_fold_df['Label'].map(class_weights).values
+        else:
+            sample_weights = None
         
         # Create datasets
         train_dataset = create_tensorset(
