@@ -1,9 +1,12 @@
 import keras
+from keras import layers
 import numpy as np
 from keras.applications import (
-    ResNet50, ResNet101, ResNet152,
-    EfficientNetV2B0, EfficientNetV2B1, EfficientNetV2B2, EfficientNetV2B3,
-    EfficientNetV2S, EfficientNetV2M
+    ResNet50,
+    MobileNetV3S,
+    EfficientNetV2B0,
+    EfficientNetV2S, 
+    EfficientNetV2M
 )
 
 def get_base_model(model_name, config, weights_path=None):
@@ -14,13 +17,13 @@ def get_base_model(model_name, config, weights_path=None):
     if model_name.startswith('ResNet50'):
         return ResNet50(weights='imagenet', include_top=False, input_shape=input_shape)
     elif model_name.startswith('MobileNetV3S'):
-        return ResNet101(weights='imagenet', include_top=False, input_shape=input_shape)
+        return MobileNetV3S(weights='imagenet', include_top=False, input_shape=input_shape)
     elif model_name.startswith('EfficientNetV2B0'):
-        return ResNet152(weights='imagenet', include_top=False, input_shape=input_shape)
+        return EfficientNetV2B0(weights='imagenet', include_top=False, input_shape=input_shape)
     elif model_name.startswith('EfficientNetV2S'):
-        return ResNet152(weights='imagenet', include_top=False, input_shape=input_shape)
+        return EfficientNetV2S(weights='imagenet', include_top=False, input_shape=input_shape)
     elif model_name.startswith('EfficientNetV2M'):
-        return ResNet152(weights='imagenet', include_top=False, input_shape=input_shape)
+        return EfficientNetV2M(weights='imagenet', include_top=False, input_shape=input_shape)
     # ... other model options ...
     else:
         raise ValueError(f"Unknown model name: {model_name}")
@@ -29,6 +32,7 @@ def create_model(model_name, config):
     """
     Create model with proper initialization for Focal Loss
     """
+    weights_path = config['models'][model_name].get('weights_path', None)    
     base_model = get_base_model(model_name, config)
     
     # Add classification head
@@ -61,12 +65,12 @@ def create_model(model_name, config):
     
     model = keras.Model(inputs=base_model.input, outputs=outputs)
     
-    
     if weights_path:
         print(f"Loading weights from {weights_path}")
         model.load_weights(weights_path, skip_mismatch=True)
     else:
         print("No pre-trained weights provided. Using imagenet weights.")
+        
     # Freeze base model layers for initial training
     for layer in base_model.layers:
         layer.trainable = False
