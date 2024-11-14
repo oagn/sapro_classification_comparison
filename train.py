@@ -73,7 +73,7 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
             save_best_only=True,
             verbose=1
         ),
-        PredictionDistributionCallback()
+        PredictionDistributionCallback(val_data=val_ds)
     ]
 
     # Add model checkpoint for unfrozen phase
