@@ -63,7 +63,7 @@ def train_with_cross_validation(config, model_name):
         # Evaluate fold
         fold_eval = evaluate_model(
             model, 
-            test_dataset,
+            config['data']['test_dir'],
             config['data']['class_names'],
             batch_size=config['data']['batch_size'],
             img_size=config['models'][model_name]['img_size'],
