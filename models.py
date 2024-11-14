@@ -41,13 +41,17 @@ def create_model(model_name, config):
     x = keras.layers.Dense(config['models'][model_name]['num_dense_layers'], activation='relu')(x)
     x = keras.layers.Dropout(0.2)(x)
     
-    # Calculate and print beta value for final layer bias
+    # Calculate beta for final layer bias
     num_classes = len(config['data']['class_names'])
     if num_classes == 2:  # Only for binary classification
-        pi = config.get('class_prior', 0.01)  # Default to 0.01 if not specified
+        # Set pi to ~0.12 which gives beta ≈ -2
+        pi = 0.12 
         beta = -np.log((1 - pi) / pi)
         print(f"\nInitializing final layer bias with beta = {beta:.3f}")
-        print(f"This corresponds to a positive class prior of {pi:.3%}")
+        print(f"This corresponds to a positive class prior of {pi:.1%}")
+        
+        # Initialize final dense layer with bias
+        model.get_layer('predictions').bias.assign([beta])
     
     # Initialize the final layer with bias for Focal Loss
     if num_classes == 2:
