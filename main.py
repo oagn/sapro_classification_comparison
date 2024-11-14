@@ -4,11 +4,12 @@ os.environ["KERAS_BACKEND"] = "jax"
 import yaml
 from data_loader import load_data, prepare_cross_validation_data
 from models import create_model, unfreeze_model
-from train import train_model
+from train import train_model, train_fold
 from evaluate import evaluate_model
 import matplotlib.pyplot as plt
 import datetime
 import numpy as np
+import jax
 
 def plot_training_history(history, model_name, output_dir):
     plt.figure(figsize=(12, 4))
@@ -35,82 +36,88 @@ def plot_training_history(history, model_name, output_dir):
 
 def train_with_cross_validation(config, model_name):
     """
-    Train model using cross-validation
+    Train model using cross-validation with JAX backend
     """
-    print(f"Training {model_name} with cross-validation...")
-    
-    # Prepare cross-validation datasets
     fold_datasets, test_dataset = prepare_cross_validation_data(
         config['data']['train_dir'],
         config,
         model_name,
-        n_splits=5  # You can make this configurable
+        n_splits=5
     )
     
     fold_results = []
     for fold_idx, (train_ds, val_ds) in enumerate(fold_datasets):
-        print(f"\nTraining fold {fold_idx + 1}")
-        
         # Create new model instance for this fold
         model = create_model(model_name, config=config)
         
-        # Initial training with frozen base model
-        print("Initial training with frozen base model...")
-        history_frozen = train_model(
+        # Train both phases
+        history, model = train_fold(
             model, 
             train_ds, 
             val_ds, 
             config, 
-            learning_rate=config['training']['learning_rate'],
-            epochs=config['training']['initial_epochs'],
-            image_size=config['models'][model_name]['img_size'],
-            model_name=f"{model_name}_fold_{fold_idx + 1}",
-            is_fine_tuning=False
-        )
-        
-        # Unfreeze layers and continue training
-        print(f"Unfreezing top {config['models'][model_name]['unfreeze_layers']} layers...")
-        model = unfreeze_model(model, config['models'][model_name]['unfreeze_layers'])
-        
-        history_unfrozen = train_model(
-            model, 
-            train_ds, 
-            val_ds, 
-            config, 
-            learning_rate=config['training']['fine_tuning_lr'],
-            epochs=config['training']['fine_tuning_epochs'],
-            image_size=config['models'][model_name]['img_size'],
-            model_name=f"{model_name}_fold_{fold_idx + 1}",
-            is_fine_tuning=True
+            model_name,
+            fold_idx
         )
         
         # Evaluate fold
         fold_eval = evaluate_model(
             model, 
-            config['data']['test_dir'],
+            test_dataset,
             config['data']['class_names'],
             batch_size=config['data']['batch_size'],
             img_size=config['models'][model_name]['img_size'],
             output_path=os.path.join(config['data']['output_dir'], f'fold_{fold_idx + 1}')
         )
         
-        fold_results.append(fold_eval)
+        fold_results.append({
+            'history': history,
+            'metrics': fold_eval
+        })
         
-        # Save fold model
-        model.save(os.path.join(config['data']['output_dir'], f"{model_name}_fold_{fold_idx + 1}_final.keras"))
+        # Clean up to free memory
+        del model
+        jax.clear_caches()
     
-    # Calculate and return average results across folds
-    avg_results = {
-        'accuracy': np.mean([r['accuracy'] for r in fold_results]),
-        'macro_f1': np.mean([r['macro_f1'] for r in fold_results]),
-        'weighted_f1': np.mean([r['weighted_f1'] for r in fold_results]),
-        'precision_per_class': np.mean([r['precision_per_class'] for r in fold_results], axis=0),
-        'recall_per_class': np.mean([r['recall_per_class'] for r in fold_results], axis=0),
-        'f1_per_class': np.mean([r['f1_per_class'] for r in fold_results], axis=0),
-        'fold_results': fold_results
-    }
+    return fold_results
+
+def plot_fold_histories(fold_results, model_name, output_dir):
+    """
+    Plot training histories for all folds
+    """
+    plt.figure(figsize=(15, 5))
     
-    return avg_results
+    # Plot losses
+    plt.subplot(1, 2, 1)
+    for i, result in enumerate(fold_results):
+        if 'frozen' in result['history']:
+            plt.plot(result['history']['frozen']['val_loss'], 
+                    label=f'Fold {i+1} Frozen', linestyle='--')
+        if 'unfrozen' in result['history']:
+            plt.plot(result['history']['unfrozen']['val_loss'], 
+                    label=f'Fold {i+1} Unfrozen', linestyle='-')
+    plt.title(f'{model_name} - Validation Loss Across Folds')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    
+    # Plot accuracies
+    plt.subplot(1, 2, 2)
+    for i, result in enumerate(fold_results):
+        if 'frozen' in result['history']:
+            plt.plot(result['history']['frozen']['val_accuracy'], 
+                    label=f'Fold {i+1} Frozen', linestyle='--')
+        if 'unfrozen' in result['history']:
+            plt.plot(result['history']['unfrozen']['val_accuracy'], 
+                    label=f'Fold {i+1} Unfrozen', linestyle='-')
+    plt.title(f'{model_name} - Validation Accuracy Across Folds')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, f'{model_name}_fold_histories.png'))
+    plt.close()
 
 def main():
     with open('config_SMOTE.yaml', 'r') as f:

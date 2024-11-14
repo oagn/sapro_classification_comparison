@@ -97,12 +97,9 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
 
     def get_base_model_name(model_name):
         """Extract base model name from potentially modified name (e.g., with fold number)"""
-        base_models = ['MobileNetV3L', 'MobileNetV3S', 'EfficientNetV2B0', 
-                      'EfficientNetV2S', 'EfficientNetV2M', 'ResNet50']
-        for base_name in base_models:
-            if base_name in model_name:
-                return base_name
-        raise ValueError(f"Unknown base model name in: {model_name}")
+        # Split the model name by underscore and take the first part
+        base_name = model_name.split('_')[0]
+        return base_name
 
     def preprocess(img, model_name):
         """
@@ -118,10 +115,10 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
             img = img[..., ::-1]  # RGB to BGR
             img -= mean
             return img
-        elif model_name in ['MobileNetV3L', 'MobileNetV3S', 'EfficientNetV2B0', 'EfficientNetV2S','EfficientNetV2M']:
+        elif base_model_name in ['MobileNetV3L', 'MobileNetV3S', 'EfficientNetV2B0', 'EfficientNetV2S','EfficientNetV2M']:
             return img  # No preprocessing needed, it's built into the model
         else:
-            raise ValueError(f"Unknown model name: {model_name}")
+            raise ValueError(f"Unknown model name: {base_model_name}")
 
     rand_aug = keras_cv.layers.RandAugment(
         value_range=(0, 255), augmentations_per_image=3, magnitude=magnitude)
@@ -362,11 +359,48 @@ def prepare_fold_data(X_train, y_train, X_val, y_val, batch_size=32, random_stat
     
     return train_dataset, val_dataset
 
+def calculate_class_weights(train_fold_df, method='effective'):
+    """
+    Calculate class weights using different methods
+    
+    Args:
+        train_fold_df: DataFrame containing training data
+        method: 'balanced' or 'effective' (default)
+            - 'balanced': inverse frequency
+            - 'effective': effective number of samples
+    """
+    class_counts = train_fold_df['Label'].value_counts()
+    total = len(train_fold_df)
+    n_classes = len(class_counts)
+    
+    if method == 'balanced':
+        # Simple inverse frequency weighting
+        weights = {label: total/(n_classes*count) for label, count in class_counts.items()}
+    
+    elif method == 'effective':
+        # Effective number of samples weighting (better for severe imbalance)
+        beta = 0.9999  # Hyperparameter for effective samples
+        effective_num = 1.0 - np.power(beta, class_counts)
+        weights = {label: (1.0 - beta) / effective_num[label] for label in class_counts.index}
+        
+        # Normalize weights
+        weight_sum = sum(weights.values())
+        weights = {label: (w * n_classes) / weight_sum for label, w in weights.items()}
+    
+    else:
+        raise ValueError(f"Unknown weighting method: {method}")
+    
+    print("\nClass weights:")
+    for label, weight in weights.items():
+        print(f"Class {label}: {weight:.3f}")
+    
+    return weights
+
 def prepare_cross_validation_data(data_dir, config, model_name, n_splits=5, random_state=42):
     """
-    Prepare data for k-fold cross validation with image data
+    Prepare data for k-fold cross validation with image data and class balancing
     """
-    # Load all image paths and labels from the training directory
+    # Load all image paths and labels
     df = create_fixed(data_dir)
     
     # Create stratified k-fold splits
@@ -377,20 +411,28 @@ def prepare_cross_validation_data(data_dir, config, model_name, n_splits=5, rand
     batch_size = config['data']['batch_size']
     augmentation_magnitude = config['data'].get('augmentation_magnitude', 0.3)
     
-    # Generate fold datasets
     fold_datasets = []
     for fold_idx, (train_idx, val_idx) in enumerate(skf.split(df, df['Label'])):
-        # Split dataframe into train and validation for this fold
+        print(f"\nPreparing Fold {fold_idx + 1}")
+        
+        # Split data for this fold
         train_fold_df = df.iloc[train_idx].reset_index(drop=True)
         val_fold_df = df.iloc[val_idx].reset_index(drop=True)
         
-        # Create datasets for this fold
+        # Calculate class weights for this fold
+        class_weights = calculate_class_weights(train_fold_df, method='effective')
+        
+        # Convert class weights to sample weights
+        sample_weights = train_fold_df['Label'].map(class_weights).values
+        
+        # Create datasets
         train_dataset = create_tensorset(
             train_fold_df,
             img_size,
             batch_size,
             augmentation_magnitude,
             ds_name="train",
+            sample_weights=sample_weights,
             model_name=model_name,
             config=config
         )
@@ -407,14 +449,14 @@ def prepare_cross_validation_data(data_dir, config, model_name, n_splits=5, rand
         
         fold_datasets.append((train_dataset, val_dataset))
         
-        print(f"Fold {fold_idx + 1}:")
+        # Print fold statistics
+        print(f"\nFold {fold_idx + 1} Statistics:")
         print(f"Training samples: {len(train_fold_df)}")
         print(f"Validation samples: {len(val_fold_df)}")
-        print("Class distribution in training:")
+        print("\nClass distribution in training:")
         print(train_fold_df['Label'].value_counts())
-        print("Class distribution in validation:")
+        print("\nClass distribution in validation:")
         print(val_fold_df['Label'].value_counts())
-        print()
     
     # Create test dataset
     test_df = create_fixed(config['data']['test_dir'])

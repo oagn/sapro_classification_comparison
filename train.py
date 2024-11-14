@@ -10,76 +10,10 @@ import numpy as np
 import os
 
 
-def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size=224, model_name=None, is_fine_tuning=False, combined_df=None):
-
-    class NewDatasetCallback(keras.callbacks.Callback):
-        def __init__(self, config, combined_df, model_name, image_size):
-            super().__init__()
-            self.config = config
-            self.combined_df = combined_df
-            self.model_name = model_name
-            self.image_size = image_size
-        
-        def on_epoch_begin(self, epoch, logs=None):
-            if self.config['training']['new_dataset_per_epoch'] and is_fine_tuning:
-                if self.combined_df is not None:
-                    # Determine the number of samples to use
-                    if self.config['pseudo_labeling'].get('use_all_samples', True):
-                        new_train_df = self.combined_df
-                    else:
-                        num_samples = self.config['pseudo_labeling'].get('num_samples_per_epoch', len(self.combined_df))
-                        
-                        # Option 1: Simple random sampling
-                        new_train_df = self.combined_df.sample(n=num_samples, replace=False, random_state=epoch)
-                        
-                        # Option 2: Stratified sampling (if you want to maintain class balance)
-                        # new_train_df = self.stratified_sample(num_samples, epoch)
-                    
-                    new_train_df = new_train_df.sample(frac=1, random_state=epoch).reset_index(drop=True)
-                else:
-                    # Fall back to original behavior if combined_df is not provided
-                    samples_per_class = self.config['sampling'].get('samples_per_class', None)
-                    new_train_df = create_fixed_train(self.config['data']['train_dir'], samples_per_class)
-                
-                new_train_ds = create_tensorset(
-                    new_train_df, 
-                    self.image_size,
-                    self.config['data']['batch_size'],
-                    self.config['data'].get('augmentation_magnitude', 0.3),
-                    ds_name="train",
-                    model_name=self.model_name,
-                    config=self.config
-                )
-                self.model.train_dataset = new_train_ds
-
-        def stratified_sample(self, num_samples, random_state):
-            # Implement stratified sampling here if needed
-            pass
-
-
-    callbacks = [
-        keras.callbacks.ModelCheckpoint(
-            filepath=os.path.join(config['data']['output_dir'], f'{model_name}_best_model.keras'),
-            save_best_only=True,
-            monitor='val_loss',
-            mode='min'
-        ),
-        keras.callbacks.EarlyStopping(
-            patience=config['training'].get('early_stopping_patience', 10),  # Default to 10 if not specified
-            restore_best_weights=True
-        ),
-        NewDatasetCallback(config, combined_df, model_name, image_size)
-    ]
-
-
-    optimizer = keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=1.0)
-    loss = FocalLoss(
-        alpha=config['training'].get('focal_loss_alpha', 0.25),
-        gamma=config['training']['focal_loss_gamma'],
-        from_logits=False,
-        name="focal_loss",
-    )
-
+def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size, model_name, is_fine_tuning=False):
+    """
+    Train the model with JAX backend and class weights
+    """
     # Set up JAX devices and mesh
     devices = jax.devices("gpu")
     n_devices = len(devices)
@@ -96,28 +30,110 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
     else:
         mesh = None
 
-    # Compile the model
+    callbacks = [
+        keras.callbacks.EarlyStopping(
+            monitor='val_loss',
+            patience=config['training']['early_stopping_patience'],
+            restore_best_weights=True
+        ),
+        keras.callbacks.ReduceLROnPlateau(
+            monitor='val_loss',
+            factor=0.5,
+            patience=5,
+            min_lr=1e-6
+        )
+    ]
+
+    # Add model checkpoint for unfrozen phase
+    if is_fine_tuning:
+        callbacks.append(
+            keras.callbacks.ModelCheckpoint(
+                filepath=os.path.join(config['data']['output_dir'], f'best_model_{model_name}.keras'),
+                monitor='val_loss',
+                save_best_only=True,
+                mode='min'
+            )
+        )
+
+    optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
+    loss = FocalLoss(
+        gamma=config['training']['focal_loss_gamma'],
+        from_logits=False,
+    )
+
+    # Compile and train with mesh if available
     if mesh:
         with mesh:
             model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'], jit_compile=True)
-    else:
-        model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'], jit_compile=True)
-
-    # Train the model with distributed strategy
-    if mesh:
-        with mesh:
             history = model.fit(
                 x=train_ds,
-                epochs=epochs,  
+                epochs=epochs,
                 validation_data=val_ds,
-                callbacks=callbacks
+                callbacks=callbacks,
+                use_multiprocessing=True,
+                workers=4
             )
     else:
+        model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'], jit_compile=True)
         history = model.fit(
             x=train_ds,
-            epochs=epochs,  
+            epochs=epochs,
             validation_data=val_ds,
-            callbacks=callbacks
+            callbacks=callbacks,
+            use_multiprocessing=True,
+            workers=4
         )
 
-    return history
+    return history, model
+
+def train_fold(model, train_ds, val_ds, config, model_name, fold_idx):
+    """
+    Train a single fold with both frozen and unfrozen phases using JAX
+    """
+    print(f"\nTraining fold {fold_idx + 1}")
+    
+    # Phase 1: Frozen training
+    print("Phase 1: Training with frozen base model...")
+    frozen_history, model = train_model(
+        model, 
+        train_ds, 
+        val_ds, 
+        config, 
+        learning_rate=config['training']['learning_rate'],
+        epochs=config['training']['initial_epochs'],
+        image_size=config['models'][model_name]['img_size'],
+        model_name=f"{model_name}_fold_{fold_idx}_frozen",
+        is_fine_tuning=False
+    )
+
+    # Check if unfrozen training is needed based on validation performance
+    final_val_loss = frozen_history.history['val_loss'][-1]
+    best_val_loss = min(frozen_history.history['val_loss'])
+    
+    if final_val_loss > best_val_loss * 1.1:  # If final loss is significantly worse than best
+        print("Early stopping triggered during frozen phase. Skipping unfrozen phase.")
+        return {'frozen': frozen_history.history}, model
+    
+    # Phase 2: Unfrozen training
+    print(f"Phase 2: Fine-tuning with unfrozen layers...")
+    model = unfreeze_model(model, config['models'][model_name]['unfreeze_layers'])
+    
+    unfrozen_history, model = train_model(
+        model, 
+        train_ds, 
+        val_ds, 
+        config, 
+        learning_rate=config['training']['fine_tuning_lr'],
+        epochs=config['training']['fine_tuning_epochs'],
+        image_size=config['models'][model_name]['img_size'],
+        model_name=f"{model_name}_fold_{fold_idx}_unfrozen",
+        is_fine_tuning=True
+    )
+
+    # Combine histories
+    combined_history = {
+        'frozen': frozen_history.history,
+        'unfrozen': unfrozen_history.history
+    }
+
+    return combined_history, model
