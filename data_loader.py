@@ -95,8 +95,24 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
         img = tf.cast(img, tf.float32)
         return img
 
+    def get_base_model_name(model_name):
+        """Extract base model name from potentially modified name (e.g., with fold number)"""
+        base_models = ['MobileNetV3L', 'MobileNetV3S', 'EfficientNetV2B0', 
+                      'EfficientNetV2S', 'EfficientNetV2M', 'ResNet50']
+        for base_name in base_models:
+            if base_name in model_name:
+                return base_name
+        raise ValueError(f"Unknown base model name in: {model_name}")
+
     def preprocess(img, model_name):
-        if model_name == 'ResNet50':
+        """
+        Preprocess image according to model requirements
+        """
+        # Extract base model name
+        base_model_name = get_base_model_name(model_name)
+        
+        if base_model_name == 'ResNet50':
+            # ResNet50 preprocessing
             # Manual implementation of ResNet50 preprocessing
             mean = tf.constant([103.939, 116.779, 123.68], dtype=tf.float32)
             img = img[..., ::-1]  # RGB to BGR
