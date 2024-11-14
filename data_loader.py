@@ -52,24 +52,78 @@ def create_fixed(ds_path):
 
 
 def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sample_weights=None, model_name=None, config=None):
-    """Create dataset with proper label shapes"""
-    num_classes = len(config['data']['class_names'])
+    """
+    Create a TensorFlow dataset from a DataFrame
+    """
+    in_path = in_df['file_path'].values  # Using 'file_path' instead of 'Path'
+    in_class = in_df['Label'].values
     
-    # Convert labels to one-hot if needed
+    # Handle labels based on number of classes
+    num_classes = len(config['data']['class_names'])
     if num_classes > 2:
         # Multi-class: use one-hot encoding
-        labels = keras.utils.to_categorical(in_df['Label'].values, num_classes=num_classes)
+        labels = keras.utils.to_categorical(in_class, num_classes=num_classes)
     else:
         # Binary: use single column
-        labels = in_df['Label'].values.reshape(-1, 1)
+        labels = in_class.reshape(-1, 1)
     
-    # Create dataset
-    ds = tf.data.Dataset.from_tensor_slices((
-        in_df['Path'].values,
-        labels
-    ))
+    # Create dataset with or without sample weights
+    if ds_name == "train" and sample_weights is not None:
+        ds = tf.data.Dataset.from_tensor_slices((in_path, labels, sample_weights))
+        
+        # Map function with sample weights
+        def process_path_with_weights(path, label, weight):
+            img = load_and_preprocess_image(path, img_size, model_name)
+            if magnitude > 0:
+                img = augment_image(img, magnitude)
+            return img, label, weight
+        
+        ds = ds.map(process_path_with_weights, num_parallel_calls=tf.data.AUTOTUNE)
+    else:
+        ds = tf.data.Dataset.from_tensor_slices((in_path, labels))
+        
+        # Map function without sample weights
+        def process_path(path, label):
+            img = load_and_preprocess_image(path, img_size, model_name)
+            if magnitude > 0 and ds_name == "train":
+                img = augment_image(img, magnitude)
+            return img, label
+        
+        ds = ds.map(process_path, num_parallel_calls=tf.data.AUTOTUNE)
     
-    # ... rest of the function ...
+    # Configure dataset for performance
+    if ds_name == "train":
+        ds = ds.shuffle(buffer_size=len(in_df))
+    
+    ds = ds.batch(batch_size)
+    ds = ds.prefetch(buffer_size=tf.data.AUTOTUNE)
+    
+    return ds
+
+def load_and_preprocess_image(path, img_size, model_name):
+    """Load and preprocess a single image"""
+    img = tf.io.read_file(path)
+    img = tf.image.decode_jpeg(img, channels=3)
+    img = tf.image.resize(img, [img_size, img_size])
+    img = tf.cast(img, tf.float32) / 255.0
+    return img
+
+def augment_image(image, magnitude):
+    """Apply data augmentation to an image"""
+    # RandAugment configuration
+    augmenter = keras.layers.RandomAugmentation(
+        value_range=(0, 1),
+        magnitude=magnitude,
+        augmentations=[
+            "random_brightness",
+            "random_contrast",
+            "random_flip_left_right",
+            "random_flip_up_down",
+            "random_rotation",
+            "random_zoom"
+        ]
+    )
+    return augmenter(image)
 
 def print_dsinfo(ds_df, ds_name='default'):
     print('Dataset: ' + ds_name)
