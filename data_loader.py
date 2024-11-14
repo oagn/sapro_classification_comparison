@@ -11,6 +11,10 @@ from sklearn.utils.class_weight import compute_class_weight
 from PIL import Image
 import matplotlib.pyplot as plt
 import seaborn as sns
+from collections import Counter
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import train_test_split
+from imblearn.over_sampling import SMOTE
 
 
 def create_fixed_train(ds_path, samples_per_class=None):
@@ -52,11 +56,16 @@ def create_fixed(ds_path):
 
 
 def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sample_weights=None, model_name=None, config=None):
-    """
-    Create a TensorFlow dataset from a DataFrame
-    """
-    in_path = in_df['File'].values  # Changed to 'File'
+    """Create dataset with proper label shapes"""
+    in_path = in_df['File'].values
     in_class = in_df['Label'].values
+    
+    # Configure RandAugment
+    rand_aug = keras_cv.layers.RandAugment(
+        value_range=(0, 255),
+        augmentations_per_image=3,
+        magnitude=magnitude
+    )
     
     # Handle labels based on number of classes
     num_classes = len(config['data']['class_names'])
@@ -67,77 +76,48 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
         # Binary: use single column
         labels = in_class.reshape(-1, 1)
     
-    # Create dataset with or without sample weights
     if ds_name == "train" and sample_weights is not None:
+        # Include sample weights in the dataset
         ds = tf.data.Dataset.from_tensor_slices((in_path, labels, sample_weights))
-        
-        # Map function with sample weights
-        def process_path_with_weights(path, label, weight):
-            img = load_and_preprocess_image(path, img_size, model_name)
-            if magnitude > 0:
-                img = augment_image(img, magnitude)
-            return img, label, weight
-        
-        ds = ds.map(process_path_with_weights, num_parallel_calls=tf.data.AUTOTUNE)
+        ds = (ds
+            .map(lambda img_path, img_class, weight: (load(img_path, img_size), img_class, weight), 
+                 num_parallel_calls=tf.data.AUTOTUNE)
+            .batch(batch_size)
+            .map(lambda x, y, w: (rand_aug(tf.cast(x, tf.uint8)), y, w), 
+                 num_parallel_calls=tf.data.AUTOTUNE)
+            .map(lambda x, y, w: (preprocess(x, model_name), y, w),
+                 num_parallel_calls=tf.data.AUTOTUNE)
+            .prefetch(tf.data.AUTOTUNE))
     else:
+        # Dataset without sample weights
         ds = tf.data.Dataset.from_tensor_slices((in_path, labels))
-        
-        # Map function without sample weights
-        def process_path(path, label):
-            img = load_and_preprocess_image(path, img_size, model_name)
-            if magnitude > 0 and ds_name == "train":
-                img = augment_image(img, magnitude)
-            return img, label
-        
-        ds = ds.map(process_path, num_parallel_calls=tf.data.AUTOTUNE)
-    
-    # Configure dataset for performance
-    if ds_name == "train":
-        ds = ds.shuffle(buffer_size=len(in_df))
-    
-    ds = ds.batch(batch_size)
-    ds = ds.prefetch(buffer_size=tf.data.AUTOTUNE)
+        ds = (ds
+            .map(lambda img_path, img_class: (load(img_path, img_size), img_class),
+                 num_parallel_calls=tf.data.AUTOTUNE)
+            .batch(batch_size)
+            .map(lambda x, y: (preprocess(x, model_name), y),
+                 num_parallel_calls=tf.data.AUTOTUNE)
+            .prefetch(tf.data.AUTOTUNE))
     
     return ds
 
-def load_and_preprocess_image(path, img_size, model_name):
-    """Load and preprocess a single image"""
+def load(path, img_size):
+    """Load and resize image"""
     img = tf.io.read_file(path)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_size, img_size])
-    img = tf.cast(img, tf.float32) / 255.0
     return img
 
-def augment_image(image, magnitude):
+def preprocess(img, model_name):
     """
-    Apply data augmentation to an image using values from plant disease literature
-    References:
-    - Too et al., 2019: https://doi.org/10.1016/j.compag.2018.10.045
-    - Ramcharan et al., 2017: https://doi.org/10.3389/fpls.2017.01852
+    Preprocess image based on model requirements
     """
-    value_range = (0, 1)  # Since we normalized our images to [0,1]
-    
-    augmenter = keras_cv.layers.RandAugment(
-        value_range=value_range,
-        magnitude=magnitude,
-        augmentations=[
-            keras_cv.layers.RandomBrightness(
-                factor=0.4,
-                value_range=value_range
-            ), # From Ramcharan et al.
-            keras_cv.layers.RandomContrast(
-                factor=0.4,
-                value_range=value_range
-            ),
-            keras_cv.layers.RandomFlip(mode="horizontal_and_vertical"), # Common in plant datasets
-            keras_cv.layers.RandomRotation(factor=0.26),# ±45° from Ramcharan
-            keras_cv.layers.RandomZoom(
-                height_factor=(-0.3, 0.3),
-                width_factor=(-0.3, 0.3)
-            )
-        ]
-    )
-    return augmenter(image)
+    if model_name.startswith('ResNet'):
+        # ResNet preprocessing expects input in [0, 255]
+        from keras.applications.resnet import preprocess_input
+        return preprocess_input(img)
+    else:
+        return tf.cast(img, tf.float32) / 255.0
 
 def print_dsinfo(ds_df, ds_name='default'):
     print('Dataset: ' + ds_name)
