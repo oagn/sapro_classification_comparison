@@ -10,6 +10,16 @@ import pandas as pd
 import numpy as np
 import os
 
+class PredictionDistributionCallback(keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        # Get predictions on validation data
+        val_pred = self.model.predict(self.validation_data, verbose=0)
+        pos_pred = np.mean(val_pred > 0.5)
+        print(f"\nPrediction distribution: {pos_pred:.3%} positive")
+        
+        # Add more detailed distribution info
+        print(f"Prediction stats: min={np.min(val_pred):.3f}, max={np.max(val_pred):.3f}, "
+              f"mean={np.mean(val_pred):.3f}, std={np.std(val_pred):.3f}")
 
 def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size, model_name, is_fine_tuning=False):
     """
@@ -42,7 +52,14 @@ def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_si
             factor=0.5,
             patience=5,
             min_lr=1e-6
-        )
+        ),
+        keras.callbacks.ModelCheckpoint(
+            filepath=os.path.join(config['data']['output_dir'], f'{model_name}_best.keras'),
+            monitor='val_loss',
+            save_best_only=True,
+            verbose=1
+        ),
+        PredictionDistributionCallback()
     ]
 
     # Add model checkpoint for unfrozen phase
