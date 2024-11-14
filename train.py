@@ -52,9 +52,11 @@ class WarmUpCosineDecay(keras.callbacks.Callback):
             # Cosine decay
             progress = (self.current_step - self.warmup_steps) / (self.total_steps - self.warmup_steps)
             lr = self.initial_lr * 0.5 * (1 + np.cos(np.pi * progress))
-        keras.backend.set_value(self.model.optimizer.learning_rate, lr)
+        
+        # For JAX backend
+        self.model.optimizer.learning_rate.assign(lr)
 
-def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size, model_name, is_fine_tuning=False):
+def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size, model_name, is_fine_tuning):
     """
     Train the model with JAX backend and class weights
     """
