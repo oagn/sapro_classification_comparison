@@ -11,15 +11,29 @@ import numpy as np
 import os
 
 class PredictionDistributionCallback(keras.callbacks.Callback):
+    def __init__(self, val_data):
+        super().__init__()
+        self.val_data = val_data
+    
     def on_epoch_end(self, epoch, logs=None):
-        # Get predictions on validation data
-        val_pred = self.model.predict(self.validation_data, verbose=0)
-        pos_pred = np.mean(val_pred > 0.5)
-        print(f"\nPrediction distribution: {pos_pred:.3%} positive")
-        
-        # Add more detailed distribution info
-        print(f"Prediction stats: min={np.min(val_pred):.3f}, max={np.max(val_pred):.3f}, "
-              f"mean={np.mean(val_pred):.3f}, std={np.std(val_pred):.3f}")
+        try:
+            # Get predictions batch by batch
+            all_preds = []
+            for batch in self.val_data:
+                x = batch[0]  # Get images from the batch tuple
+                pred = self.model.predict(x, verbose=0)
+                all_preds.append(pred)
+            
+            # Combine predictions
+            val_pred = np.concatenate(all_preds)
+            pos_pred = np.mean(val_pred > 0.5)
+            
+            # Print statistics
+            print(f"\nPrediction distribution: {pos_pred:.3%} positive")
+            print(f"Prediction stats: min={np.min(val_pred):.3f}, max={np.max(val_pred):.3f}, "
+                  f"mean={np.mean(val_pred):.3f}, std={np.std(val_pred):.3f}")
+        except Exception as e:
+            print(f"\nWarning: Could not compute prediction distribution: {str(e)}")
 
 def train_model(model, train_ds, val_ds, config, learning_rate, epochs, image_size, model_name, is_fine_tuning=False):
     """
