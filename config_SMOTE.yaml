@@ -31,7 +31,7 @@ models:
  #   num_dense_layers: 128
  #   unfreeze_layers: 36
 
- sampling:
+sampling:
   use_weights: false  # Set this to false to disable weights
   method: mild_square_root
   power: 0.3
