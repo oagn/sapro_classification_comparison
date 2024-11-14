@@ -3,7 +3,7 @@ from keras import layers
 import numpy as np
 from keras.applications import (
     ResNet50,
-    MobileNetV3S,
+    MobileNetV3Small,
     EfficientNetV2B0,
     EfficientNetV2S, 
     EfficientNetV2M
@@ -17,7 +17,7 @@ def get_base_model(model_name, config, weights_path=None):
     if model_name.startswith('ResNet50'):
         return ResNet50(weights='imagenet', include_top=False, input_shape=input_shape)
     elif model_name.startswith('MobileNetV3S'):
-        return MobileNetV3S(weights='imagenet', include_top=False, input_shape=input_shape)
+        return MobileNetV3Small(weights='imagenet', include_top=False, input_shape=input_shape)
     elif model_name.startswith('EfficientNetV2B0'):
         return EfficientNetV2B0(weights='imagenet', include_top=False, input_shape=input_shape)
     elif model_name.startswith('EfficientNetV2S'):
