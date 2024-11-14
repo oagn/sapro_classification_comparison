@@ -55,7 +55,7 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
     """
     Create a TensorFlow dataset from a DataFrame
     """
-    in_path = in_df['file_path'].values  # Using 'file_path' instead of 'Path'
+    in_path = in_df['File'].values  # Changed to 'File'
     in_class = in_df['Label'].values
     
     # Handle labels based on number of classes
