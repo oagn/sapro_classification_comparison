@@ -1,22 +1,19 @@
 import numpy as np
-from sklearn import metrics
-from sklearn.metrics import classification_report, ConfusionMatrixDisplay, f1_score
+from sklearn.metrics import (
+    classification_report, 
+    confusion_matrix,
+    accuracy_score,
+    precision_recall_fscore_support,
+    f1_score
+)
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from matplotlib import rcParams
+import seaborn as sns
 import os
 
 def evaluate_model(model, test_dataset, class_names, batch_size=None, img_size=None, output_path=None):
     """
     Evaluate model performance on test dataset
-    
-    Args:
-        model: Trained model
-        test_dataset: Either a path to test data or a TensorFlow dataset
-        class_names: List of class names
-        batch_size: Batch size (only used if test_dataset is a path)
-        img_size: Image size (only used if test_dataset is a path)
-        output_path: Path to save evaluation results
     """
     os.makedirs(output_path, exist_ok=True)
     class_ids = list(range(len(class_names)))
@@ -24,7 +21,7 @@ def evaluate_model(model, test_dataset, class_names, batch_size=None, img_size=N
     all_true = []
     
     if isinstance(test_dataset, str):
-        # If test_dataset is a path, process each class directory
+        # Process directory path
         for i, spp_class in enumerate(class_names):
             print(f"\nEvaluating class '{spp_class}' ({(i+1)}/ {len(class_names)})")
             img_generator = tf.keras.preprocessing.image_dataset_from_directory(
@@ -42,7 +39,7 @@ def evaluate_model(model, test_dataset, class_names, batch_size=None, img_size=N
             all_preds.extend(y_pred_tmp)
             all_true.extend(y_true_tmp)
     else:
-        # If test_dataset is already a TensorFlow dataset
+        # Process TensorFlow dataset
         print("\nEvaluating test dataset...")
         for images, labels in test_dataset:
             preds = model.predict(images)
@@ -52,9 +49,12 @@ def evaluate_model(model, test_dataset, class_names, batch_size=None, img_size=N
             all_preds.extend(y_pred_tmp)
             all_true.extend(y_true_tmp)
     
-    # Calculate metrics
+    # Calculate all metrics
     accuracy = accuracy_score(all_true, all_preds)
     conf_matrix = confusion_matrix(all_true, all_preds)
+    precision, recall, f1, support = precision_recall_fscore_support(all_true, all_preds)
+    macro_f1 = f1_score(all_true, all_preds, average='macro')
+    weighted_f1 = f1_score(all_true, all_preds, average='weighted')
     classification_rep = classification_report(all_true, all_preds, target_names=class_names)
     
     # Save results
@@ -75,5 +75,11 @@ def evaluate_model(model, test_dataset, class_names, batch_size=None, img_size=N
     return {
         'accuracy': accuracy,
         'confusion_matrix': conf_matrix,
-        'classification_report': classification_rep
+        'classification_report': classification_rep,
+        'precision_per_class': precision,
+        'recall_per_class': recall,
+        'f1_per_class': f1,
+        'support_per_class': support,
+        'macro_f1': macro_f1,
+        'weighted_f1': weighted_f1
     }
