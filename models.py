@@ -37,8 +37,9 @@ def create_model(model_name, config):
     
     # Add classification head
     x = base_model.output
+    x = keras.layers.GlobalAveragePooling2D()(x)  # Flatten the output to 2D
     x = keras.layers.Dense(config['models'][model_name]['num_dense_layers'], activation='relu')(x)
-    x = keras.layers.Dropout(0.2)(x)  # Add dropout for regularization
+    x = keras.layers.Dropout(0.2)(x)
     
     # Initialize the final layer with bias for Focal Loss
     num_classes = len(config['data']['class_names'])
@@ -47,7 +48,7 @@ def create_model(model_name, config):
         pi = 0.01  # Initial probability for positive class
         bias_init = -np.log((1-pi)/pi)  # ≈ -2.0
         outputs = keras.layers.Dense(
-            1,  # Binary classification needs only one output
+            1,
             activation='sigmoid',
             bias_initializer=keras.initializers.Constant(bias_init),
             name='focal_loss_output'
@@ -74,10 +75,15 @@ def create_model(model_name, config):
     # Freeze base model layers for initial training
     for layer in base_model.layers:
         layer.trainable = False
-        
+    
+    # Print model summary for debugging
+    print("\nModel Architecture:")
+    model.summary()
+    
     print(f"\nModel created with Focal Loss initialization (bias = {bias_init:.3f})")
     print(f"Number of classes: {num_classes}")
     print(f"Output activation: {'sigmoid' if num_classes == 2 else 'softmax'}")
+    print(f"Output shape: {model.output_shape}")
     
     return model
 
