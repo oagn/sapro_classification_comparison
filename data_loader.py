@@ -109,17 +109,24 @@ def load_and_preprocess_image(path, img_size, model_name):
     return img
 
 def augment_image(image, magnitude):
-    """Apply data augmentation to an image"""
-    # RandAugment configuration for Keras 3
+    """
+    Apply data augmentation to an image using values from literature
+    References:
+    - RandAugment: https://arxiv.org/abs/1909.13719
+    - ImageNet Training: https://arxiv.org/abs/2110.00476
+    """
     augmenter = keras_cv.layers.RandAugment(
         value_range=(0, 1),
         magnitude=magnitude,
         augmentations=[
-            keras_cv.layers.RandomBrightness(),
-            keras_cv.layers.RandomContrast(),
-            keras_cv.layers.RandomFlip(),
-            keras_cv.layers.RandomRotation(),
-            keras_cv.layers.RandomZoom()
+            keras_cv.layers.RandomBrightness(factor=0.4),      # ±40% from ImageNet practices
+            keras_cv.layers.RandomContrast(factor=0.4),        # ±40% from ImageNet practices
+            keras_cv.layers.RandomFlip(mode="horizontal"),     # Standard in most papers
+            keras_cv.layers.RandomRotation(factor=0.17),       # ±30 degrees converted to radians
+            keras_cv.layers.RandomZoom(
+                height_factor=(-0.3, 0.3),                     # ±30% from ImageNet practices
+                width_factor=(-0.3, 0.3)
+            )
         ]
     )
     return augmenter(image)
