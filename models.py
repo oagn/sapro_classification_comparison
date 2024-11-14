@@ -13,9 +13,13 @@ def get_base_model(model_name, config, weights_path=None):
     
     if model_name.startswith('ResNet50'):
         return ResNet50(weights='imagenet', include_top=False, input_shape=input_shape)
-    elif model_name.startswith('ResNet101'):
+    elif model_name.startswith('MobileNetV3S'):
         return ResNet101(weights='imagenet', include_top=False, input_shape=input_shape)
-    elif model_name.startswith('ResNet152'):
+    elif model_name.startswith('EfficientNetV2B0'):
+        return ResNet152(weights='imagenet', include_top=False, input_shape=input_shape)
+    elif model_name.startswith('EfficientNetV2S'):
+        return ResNet152(weights='imagenet', include_top=False, input_shape=input_shape)
+    elif model_name.startswith('EfficientNetV2M'):
         return ResNet152(weights='imagenet', include_top=False, input_shape=input_shape)
     # ... other model options ...
     else:
