@@ -1,16 +1,12 @@
-import tensorflow as tf
-import keras_cv
-import keras
-import numpy as np
-import jax.numpy as jnp
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-import pandas as pd
-from pathlib import Path
 import os
-from collections import Counter
-from keras.applications import resnet
-from sklearn.model_selection import train_test_split, StratifiedKFold
-from imblearn.over_sampling import SMOTE
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+import keras
+import keras_cv
+from sklearn.model_selection import StratifiedKFold
+from sklearn.preprocessing import LabelEncoder
+from sklearn.utils.class_weight import compute_class_weight
 
 
 def create_fixed_train(ds_path, samples_per_class=None):
@@ -110,17 +106,16 @@ def load_and_preprocess_image(path, img_size, model_name):
 
 def augment_image(image, magnitude):
     """Apply data augmentation to an image"""
-    # RandAugment configuration
-    augmenter = keras.layers.RandomAugmentation(
+    # RandAugment configuration for Keras 3
+    augmenter = keras_cv.layers.RandAugment(
         value_range=(0, 1),
         magnitude=magnitude,
         augmentations=[
-            "random_brightness",
-            "random_contrast",
-            "random_flip_left_right",
-            "random_flip_up_down",
-            "random_rotation",
-            "random_zoom"
+            keras_cv.layers.RandomBrightness(),
+            keras_cv.layers.RandomContrast(),
+            keras_cv.layers.RandomFlip(),
+            keras_cv.layers.RandomRotation(),
+            keras_cv.layers.RandomZoom()
         ]
     )
     return augmenter(image)
