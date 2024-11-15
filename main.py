@@ -38,11 +38,10 @@ def train_with_cross_validation(config, model_name):
     """
     Train model using cross-validation with JAX backend
     """
-    fold_datasets, test_dataset = prepare_cross_validation_data(
+    fold_datasets = prepare_cross_validation_data(
         config['data']['train_dir'],
         config,
-        model_name,
-        n_splits=5
+        model_name
     )
     
     fold_results = []
@@ -60,13 +59,11 @@ def train_with_cross_validation(config, model_name):
             fold_idx
         )
         
-        # Evaluate fold
+        # Evaluate fold using validation data instead of test data
         fold_eval = evaluate_model(
             model, 
-            config['data']['test_dir'],
+            val_ds,  # Changed from test_dir to val_ds
             config['data']['class_names'],
-            batch_size=config['data']['batch_size'],
-            img_size=config['models'][model_name]['img_size'],
             output_path=os.path.join(config['data']['output_dir'], f'fold_{fold_idx + 1}')
         )
         

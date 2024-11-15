@@ -8,6 +8,11 @@ data:
   class_names: ['healthy','sapro']
   #weights_path: '/scratch/c.c1767198/output/V2M_wildlife_no_possum.weights.h5'
   weights_path: null
+  metadata_path: "/scratch/c.c1767198/data/fishDatabase/full_combined_metadata_scientific_nodupes.csv"
+  group_column: "user"
+  stratify_columns: 
+    - "source"
+    - "scientific_name_fixed"
 
 models:
   #MobileNetV3S:
@@ -46,3 +51,5 @@ training:
   focal_loss_gamma: 2.0
   new_dataset_per_epoch: false  # Set to true to enable new dataset creation per epoch
   early_stopping_patience: 10  # Add this line, adjust the value as needed
+  use_groups: true  # Set to true to enable grouping by user
+  n_folds: 5

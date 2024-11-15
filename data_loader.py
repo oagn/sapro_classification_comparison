@@ -9,7 +9,7 @@ from pathlib import Path
 import os
 from collections import Counter
 from keras.applications import resnet
-from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.model_selection import train_test_split, StratifiedKFold, GroupKFold
 from imblearn.over_sampling import SMOTE
 
 
@@ -220,33 +220,6 @@ def apply_sampling_method(labels, sampling_config):
         print(f"Unknown sampling method: {sampling_method}. No sampling applied.")
         return np.ones_like(labels, dtype=np.float32)  # No sampling
 
-def create_counting_dataset(in_df, img_size, batch_size, sample_weights=None):
-    in_path = in_df['File']
-    label_encoder = LabelEncoder()
-    in_class = label_encoder.fit_transform(in_df['Label'].values)
-
-    in_class = in_class.reshape(len(in_class), 1)
-    one_hot_encoder = OneHotEncoder(sparse_output=False)
-    in_class = one_hot_encoder.fit_transform(in_class)
-    
-    if sample_weights is None:
-        sample_weights = np.ones(len(in_df), dtype=np.float32)
-    
-    ds = tf.data.Dataset.from_tensor_slices((in_class, sample_weights))
-    ds = ds.batch(batch_size)
-    
-    return ds
-
-def count_classes_from_dataset(dataset):
-    class_counts = Counter()
-    
-    for labels, weights in dataset:
-        labels = tf.argmax(labels, axis=1)  # Convert one-hot to class indices
-        weights = tf.round(weights)  # Round weights to nearest integer
-        for label, weight in zip(labels.numpy(), weights.numpy()):
-            class_counts[label] += int(weight)
-    
-    return class_counts
 
 def get_equal_sampling_weights(labels, samples_per_class=None):
     class_counts = np.bincount(labels)
@@ -282,14 +255,6 @@ def load_data(config, model_name):
         
         sample_weights = apply_sampling_method(train_labels, config['sampling'])
         
-        # Create dataset for counting
-        counting_ds = create_counting_dataset(train_df, img_size, batch_size, sample_weights)
-        
-        # Count classes
-        class_counts = count_classes_from_dataset(counting_ds)
-        print("Class distribution in training set after sampling:")
-        for class_label, count in class_counts.items():
-            print(f"Class {class_label}: {count} samples")
     else:
         sample_weights = None
         class_counts = train_df['Label'].value_counts().to_dict()
@@ -396,23 +361,56 @@ def calculate_class_weights(train_fold_df, method='effective'):
     
     return weights
 
-def prepare_cross_validation_data(data_dir, config, model_name, n_splits=5, random_state=42):
+def prepare_cross_validation_data(data_dir, config, model_name, random_state=42):
     """
     Prepare data for k-fold cross validation with image data and class balancing
     """
     # Load all image paths and labels
     df = create_fixed(data_dir)
+
+    # Load metadata
+    metadata = pd.read_csv(config['data']['metadata_path'])
     
-    # Create stratified k-fold splits
-    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    # Extract filename from full path in df
+    df['filename'] = df['File'].apply(lambda x: os.path.basename(x))
+    
+    # Merge with metadata
+    df = df.merge(
+        metadata[['data_row.external_id', 'user', 'source', 'scientific_name_fixed']],
+        left_on='filename',
+        right_on='data_row.external_id',
+        how='left'
+    )
+
+        # Create combined stratification column
+    df['strat_col'] = df['source'] + '_' + df['scientific_name_fixed'] + '_' + df['Label'].astype(str)
+    
+    # Print merge statistics
+    print("\nMerge Statistics:")
+    print(f"Original df shape: {len(df)}")
+    print(f"Rows with missing metadata: {df[['user', 'source', 'scientific_name_fixed']].isna().any(axis=1).sum()}")
+    
+    # Choose fold strategy
+    use_groups = config['training'].get('use_groups', False)
+    
+    if use_groups:
+        kfold = GroupKFold(n_splits=config['training']['n_folds'])
+        splits = kfold.split(df, y=df['strat_col'], groups=df['user'])
+        print("\nUsing GroupKFold with user grouping")
+    else:
+        kfold = StratifiedKFold(n_splits=config['training']['n_folds'], shuffle=True, random_state=42)
+        splits = kfold.split(df, df['strat_col'])
+        print("\nUsing StratifiedKFold without grouping")
+
+    # Create datasets for each fold
+    fold_datasets = []
     
     # Get parameters from config
     img_size = config['models'][model_name]['img_size']
     batch_size = config['data']['batch_size']
     augmentation_magnitude = config['data'].get('augmentation_magnitude', 0.3)
     
-    fold_datasets = []
-    for fold_idx, (train_idx, val_idx) in enumerate(skf.split(df, df['Label'])):
+    for fold_idx, (train_idx, val_idx) in enumerate(splits):
         print(f"\nPreparing Fold {fold_idx + 1}")
         
         # Split data for this fold
@@ -424,7 +422,21 @@ def prepare_cross_validation_data(data_dir, config, model_name, n_splits=5, rand
         
         # Convert class weights to sample weights
         sample_weights = train_fold_df['Label'].map(class_weights).values
+
+        print("\nClass distribution in training:")
+        print(train_fold_df['Label'].value_counts())
+        print("\nClass distribution in validation:")
+        print(val_fold_df['Label'].value_counts())
+        print("\nSource distribution in training:")
+        print(train_fold_df['source'].value_counts())
+        print("\nTaxonomic distribution in training:")
+        print(train_fold_df['scientific_name_fixed'].value_counts())
         
+        if use_groups:
+            print("\nUser distribution:")
+            print(f"Training users: {len(train_fold_df['user'].unique())}")
+            print(f"Validation users: {len(val_fold_df['user'].unique())}")
+
         # Create datasets
         train_dataset = create_tensorset(
             train_fold_df,
@@ -458,19 +470,8 @@ def prepare_cross_validation_data(data_dir, config, model_name, n_splits=5, rand
         print("\nClass distribution in validation:")
         print(val_fold_df['Label'].value_counts())
     
-    # Create test dataset
-    test_df = create_fixed(config['data']['test_dir'])
-    test_dataset = create_tensorset(
-        test_df,
-        img_size,
-        batch_size,
-        0,  # No augmentation for test
-        ds_name="test",
-        model_name=model_name,
-        config=config
-    )
-    
-    return fold_datasets, test_dataset
+    return fold_datasets
+
 
 def get_class_weights(df, label_col='sapro'):
     """

@@ -13,7 +13,7 @@ import os
 
 def evaluate_model(model, test_dataset, class_names, batch_size=None, img_size=None, output_path=None):
     """
-    Evaluate model performance on test dataset
+    Evaluate model performance on test dataset or validation dataset
     """
     os.makedirs(output_path, exist_ok=True)
     class_ids = list(range(len(class_names)))
@@ -40,14 +40,19 @@ def evaluate_model(model, test_dataset, class_names, batch_size=None, img_size=N
             all_true.extend(y_true_tmp)
     else:
         # Process TensorFlow dataset
-        print("\nEvaluating test dataset...")
-        for images, labels in test_dataset:
-            preds = model.predict(images)
-            y_pred_tmp = [class_ids[pred.argmax()] for pred in preds]
-            y_true_tmp = [label.numpy().argmax() for label in labels]
-            
-            all_preds.extend(y_pred_tmp)
-            all_true.extend(y_true_tmp)
+        print("\nEvaluating validation dataset...")
+        predictions = model.predict(test_dataset)
+        
+        # Collect all true labels
+        true_labels = []
+        for _, labels in test_dataset:
+            if isinstance(labels, tuple):  # If dataset includes sample weights
+                labels = labels[0]
+            true_labels.extend(labels.numpy())
+        
+        # Convert predictions and true labels to class indices
+        all_preds = [pred.argmax() for pred in predictions]
+        all_true = [label.argmax() for label in true_labels]
     
     # Calculate all metrics
     accuracy = accuracy_score(all_true, all_preds)
