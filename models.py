@@ -45,7 +45,7 @@ def create_model(model_name, config):
     num_classes = len(config['data']['class_names'])
     if num_classes == 2:  # Only for binary classification
         # Set pi to ~0.18 which gives beta ≈ -1.5
-        pi = 0.01 
+        pi = 0.05 
         beta = -np.log((1 - pi) / pi)
         print(f"\nInitializing final layer bias with beta = {beta:.3f}")
         print(f"This corresponds to a positive class prior of {pi:.1%}")

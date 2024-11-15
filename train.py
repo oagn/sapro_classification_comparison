@@ -5,6 +5,7 @@ from jax.experimental.mesh_utils import create_device_mesh
 from jax.sharding import Mesh
 from keras_cv.losses import FocalLoss
 from data_loader import create_fixed_train, create_tensorset
+from models import unfreeze_model
 import pandas as pd
 import numpy as np
 import os
