@@ -134,31 +134,28 @@ def main():
     summary = "\nDetailed Summary of Cross-Validation Results:\n"
     for model_name, model_results in results.items():
         summary += f"\n{model_name}:\n"
-        summary += f"  Average Accuracy: {model_results['accuracy']:.4f}\n"
-        summary += f"  Average Macro F1 score: {model_results['macro_f1']:.4f}\n"
-        summary += f"  Average Weighted F1 score: {model_results['weighted_f1']:.4f}\n"
         
-        # Per-class metrics
+        # Calculate averages across folds
+        avg_accuracy = np.mean([fold['metrics']['accuracy'] for fold in model_results])
+        avg_macro_f1 = np.mean([fold['metrics']['macro_f1'] for fold in model_results])
+        avg_weighted_f1 = np.mean([fold['metrics']['weighted_f1'] for fold in model_results])
+        
+        # Calculate per-class metrics
+        avg_precision = np.mean([fold['metrics']['precision_per_class'] for fold in model_results], axis=0)
+        avg_recall = np.mean([fold['metrics']['recall_per_class'] for fold in model_results], axis=0)
+        avg_f1 = np.mean([fold['metrics']['f1_per_class'] for fold in model_results], axis=0)
+        
+        # Write summary
+        summary += f"  Average Accuracy: {avg_accuracy:.4f}\n"
+        summary += f"  Average Macro F1: {avg_macro_f1:.4f}\n"
+        summary += f"  Average Weighted F1: {avg_weighted_f1:.4f}\n"
+        summary += "\n  Per-class metrics:\n"
+        
         for i, class_name in enumerate(config['data']['class_names']):
-            summary += f"\n  Class {class_name}:\n"
-            summary += f"    Precision: {model_results['precision_per_class'][i]:.4f}\n"
-            summary += f"    Recall: {model_results['recall_per_class'][i]:.4f}\n"
-            summary += f"    F1 Score: {model_results['f1_per_class'][i]:.4f}\n"
-        
-        # Individual fold results
-        summary += "\n  Individual Fold Results:\n"
-        for fold_idx, fold_result in enumerate(model_results['fold_results']):
-            summary += f"\n    Fold {fold_idx + 1}:\n"
-            summary += f"      Accuracy: {fold_result['accuracy']:.4f}\n"
-            summary += f"      Macro F1: {fold_result['macro_f1']:.4f}\n"
-            summary += f"      Weighted F1: {fold_result['weighted_f1']:.4f}\n"
-            
-            # Per-class metrics for each fold
-            for i, class_name in enumerate(config['data']['class_names']):
-                summary += f"\n      Class {class_name}:\n"
-                summary += f"        Precision: {fold_result['precision_per_class'][i]:.4f}\n"
-                summary += f"        Recall: {fold_result['recall_per_class'][i]:.4f}\n"
-                summary += f"        F1 Score: {fold_result['f1_per_class'][i]:.4f}\n"
+            summary += f"    {class_name}:\n"
+            summary += f"      Precision: {avg_precision[i]:.4f}\n"
+            summary += f"      Recall: {avg_recall[i]:.4f}\n"
+            summary += f"      F1: {avg_f1[i]:.4f}\n"
     
     print(summary)
     
