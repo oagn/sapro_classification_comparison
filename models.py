@@ -24,7 +24,6 @@ def get_base_model(model_name, config, weights_path=None):
         return EfficientNetV2S(weights='imagenet', include_top=False, input_shape=input_shape)
     elif model_name.startswith('EfficientNetV2M'):
         return EfficientNetV2M(weights='imagenet', include_top=False, input_shape=input_shape)
-    # ... other model options ...
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
