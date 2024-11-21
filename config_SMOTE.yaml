@@ -1,5 +1,5 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/efficientWeights_onco_user_grouped'
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/oversample_onco_user_grouped'
   train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/onco_nfold/train'
   #test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/salmo_usergroup_nfold/test'
   batch_size: 32
@@ -53,3 +53,6 @@ training:
   early_stopping_patience: 10  # Add this line, adjust the value as needed
   use_groups: true  # Set to true to enable grouping by user
   n_folds: 5
+  use_oversampling: true  # Enable oversampling
+  sampling_strategy: "match_majority"  # Options: "threshold", "match_majority", "progressive"
+  threshold_ratio: 0.5  # Only used if strategy is "threshold"
