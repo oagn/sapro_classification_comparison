@@ -1,5 +1,5 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/oversample_onco_user_grouped'
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/batch_onco_user_grouped'
   train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/onco_nfold/train'
   #test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/salmo_usergroup_nfold/test'
   batch_size: 32
@@ -15,22 +15,22 @@ data:
     - "scientific_name_fixed"
 
 models:
-  #MobileNetV3S:
-  #  img_size: 224
-  #  num_dense_layers: 128
-  #  unfreeze_layers: 52
-  #EfficientNetV2B0:
-  #  img_size: 224
-  #  num_dense_layers: 256
-  #  unfreeze_layers: 198
-  #EfficientNetV2S:
-  #  img_size: 300
-  #  num_dense_layers: 512
-  #  unfreeze_layers: 363
-  #EfficientNetV2M:
-  #  img_size: 384
-  #  num_dense_layers: 512
-  #  unfreeze_layers: 348
+  MobileNetV3S:
+    img_size: 224
+    num_dense_layers: 128
+    unfreeze_layers: 52
+  EfficientNetV2B0:
+    img_size: 224
+    num_dense_layers: 256
+    unfreeze_layers: 198
+  EfficientNetV2S:
+    img_size: 300
+    num_dense_layers: 512
+    unfreeze_layers: 363
+  EfficientNetV2M:
+    img_size: 384
+    num_dense_layers: 512
+    unfreeze_layers: 348
   ResNet50:
     img_size: 224
     num_dense_layers: 128

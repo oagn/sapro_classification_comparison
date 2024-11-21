@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import datetime
 import numpy as np
 import jax
+import pandas as pd
 
 def plot_training_history(history, model_name, output_dir):
     plt.figure(figsize=(12, 4))
@@ -123,11 +124,75 @@ def main():
     output_dir = config['data']['output_dir']
     os.makedirs(output_dir, exist_ok=True)
 
+    # Initialize DataFrames for storing results
+    aggregated_results = []
+    fold_results = []
+
     results = {}
     for model_name in config['models']:
-        results[model_name] = train_with_cross_validation(config, model_name)
+        model_fold_results = train_with_cross_validation(config, model_name)
+        results[model_name] = model_fold_results
 
-    # Print and save detailed summary
+        # Store per-fold results
+        for fold_idx, fold_data in enumerate(model_fold_results):
+            fold_metrics = {
+                'model': model_name,
+                'fold': fold_idx + 1,
+                'accuracy': fold_data['metrics']['accuracy'],
+                'macro_f1': fold_data['metrics']['macro_f1'],
+                'weighted_f1': fold_data['metrics']['weighted_f1']
+            }
+            
+            # Add per-class metrics
+            for i, class_name in enumerate(config['data']['class_names']):
+                fold_metrics.update({
+                    f'{class_name}_precision': fold_data['metrics']['precision_per_class'][i],
+                    f'{class_name}_recall': fold_data['metrics']['recall_per_class'][i],
+                    f'{class_name}_f1': fold_data['metrics']['f1_per_class'][i]
+                })
+            
+            fold_results.append(fold_metrics)
+
+        # Calculate and store aggregated results
+        avg_metrics = {
+            'model': model_name,
+            'avg_accuracy': np.mean([fold['metrics']['accuracy'] for fold in model_fold_results]),
+            'std_accuracy': np.std([fold['metrics']['accuracy'] for fold in model_fold_results]),
+            'avg_macro_f1': np.mean([fold['metrics']['macro_f1'] for fold in model_fold_results]),
+            'std_macro_f1': np.std([fold['metrics']['macro_f1'] for fold in model_fold_results]),
+            'avg_weighted_f1': np.mean([fold['metrics']['weighted_f1'] for fold in model_fold_results]),
+            'std_weighted_f1': np.std([fold['metrics']['weighted_f1'] for fold in model_fold_results])
+        }
+
+        # Add per-class aggregated metrics
+        for i, class_name in enumerate(config['data']['class_names']):
+            precisions = [fold['metrics']['precision_per_class'][i] for fold in model_fold_results]
+            recalls = [fold['metrics']['recall_per_class'][i] for fold in model_fold_results]
+            f1s = [fold['metrics']['f1_per_class'][i] for fold in model_fold_results]
+            
+            avg_metrics.update({
+                f'{class_name}_avg_precision': np.mean(precisions),
+                f'{class_name}_std_precision': np.std(precisions),
+                f'{class_name}_avg_recall': np.mean(recalls),
+                f'{class_name}_std_recall': np.std(recalls),
+                f'{class_name}_avg_f1': np.mean(f1s),
+                f'{class_name}_std_f1': np.std(f1s)
+            })
+        
+        aggregated_results.append(avg_metrics)
+
+    # Save results to CSV
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Save per-fold results
+    fold_df = pd.DataFrame(fold_results)
+    fold_df.to_csv(os.path.join(output_dir, f'fold_results_{timestamp}.csv'), index=False)
+    
+    # Save aggregated results
+    agg_df = pd.DataFrame(aggregated_results)
+    agg_df.to_csv(os.path.join(output_dir, f'aggregated_results_{timestamp}.csv'), index=False)
+
+    # Still keep the text summary
     summary = "\nDetailed Summary of Cross-Validation Results:\n"
     for model_name, model_results in results.items():
         summary += f"\n{model_name}:\n"
