@@ -2,10 +2,6 @@ import os
 os.environ["KERAS_BACKEND"] = "jax"
 
 import yaml
-from data_loader import prepare_cross_validation_data
-from models import create_model
-from train import train_fold
-from evaluate import evaluate_model
 import matplotlib.pyplot as plt
 import datetime
 import numpy as np
@@ -38,6 +34,12 @@ def train_with_cross_validation(config, model_name):
     """
     Train model using cross-validation with JAX backend
     """
+
+    from data_loader import prepare_cross_validation_data
+    from models import create_model
+    from train import train_fold
+    from evaluate import evaluate_model
+
     fold_datasets = prepare_cross_validation_data(
         config['data']['train_dir'],
         config,
