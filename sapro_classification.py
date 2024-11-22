@@ -119,7 +119,7 @@ def plot_fold_histories(fold_results, model_name, output_dir):
     plt.close()
 
 def main():
-    with open('/home/c.c1767198/sapro_classification_comparison/config_SMOTE.yaml', 'r') as f:
+    with open('/home/c.c1767198/workarea/sapro_classification_comparison/config_SMOTE.yaml', 'r') as f:
         config = yaml.safe_load(f)
 
     output_dir = config['data']['output_dir']
