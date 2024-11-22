@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.metrics import (
     classification_report, 
-    confusion_matrix,
+    confusion_matrix as sk_confusion_matrix,
     accuracy_score,
     precision_recall_fscore_support,
     f1_score
@@ -56,7 +56,7 @@ def evaluate_model(model, test_dataset, class_names, batch_size=None, img_size=N
     
     # Calculate all metrics
     accuracy = accuracy_score(all_true, all_preds)
-    conf_matrix = confusion_matrix(all_true, all_preds)
+    conf_matrix = sk_confusion_matrix(all_true, all_preds, normalize="true")
     precision, recall, f1, support = precision_recall_fscore_support(all_true, all_preds)
     macro_f1 = f1_score(all_true, all_preds, average='macro')
     weighted_f1 = f1_score(all_true, all_preds, average='weighted')
