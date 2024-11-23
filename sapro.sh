@@ -3,7 +3,7 @@
 #SBATCH --error=%x.e.%j
 #SBATCH --output=%x.o.%j
 #SBATCH --partition=gpu
-#SBATCH --time=10:00:00
+#SBATCH --time=30:00:00
 #SBATCH --ntasks=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:2
