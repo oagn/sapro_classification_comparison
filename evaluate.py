@@ -61,6 +61,7 @@ def evaluate_model(model, test_dataset, class_names, batch_size=None, img_size=N
     macro_f1 = f1_score(all_true, all_preds, average='macro')
     weighted_f1 = f1_score(all_true, all_preds, average='weighted')
     classification_rep = classification_report(all_true, all_preds, target_names=class_names)
+    print(classification_rep)
     
     # Save results
     if output_path:

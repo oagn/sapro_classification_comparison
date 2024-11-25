@@ -11,6 +11,7 @@ import datetime
 import numpy as np
 import jax
 import pandas as pd
+import pickle
 
 def plot_training_history(history, model_name, output_dir):
     plt.figure(figsize=(12, 4))
@@ -124,16 +125,20 @@ def main():
     output_dir = config['data']['output_dir']
     os.makedirs(output_dir, exist_ok=True)
 
-    # Initialize DataFrames for storing results
-    aggregated_results = []
-    fold_results = []
-
+    # Initialize lists for DataFrame results
+    all_fold_results = []
+    all_model_results = []
+    
+    # Keep the results dictionary for the existing summary
     results = {}
+    
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
     for model_name in config['models']:
         model_fold_results = train_with_cross_validation(config, model_name)
-        results[model_name] = model_fold_results
+        results[model_name] = model_fold_results  # Keep this for the existing summary code
 
-        # Store per-fold results
+        # Add to DataFrame results
         for fold_idx, fold_data in enumerate(model_fold_results):
             fold_metrics = {
                 'model': model_name,
@@ -151,7 +156,7 @@ def main():
                     f'{class_name}_f1': fold_data['metrics']['f1_per_class'][i]
                 })
             
-            fold_results.append(fold_metrics)
+            all_fold_results.append(fold_metrics)
 
         # Calculate and store aggregated results
         avg_metrics = {
@@ -179,20 +184,22 @@ def main():
                 f'{class_name}_std_f1': np.std(f1s)
             })
         
-        aggregated_results.append(avg_metrics)
+        all_model_results.append(avg_metrics)
 
-    # Save results to CSV
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    # Save per-fold results
-    fold_df = pd.DataFrame(fold_results)
-    fold_df.to_csv(os.path.join(output_dir, f'fold_results_{timestamp}.csv'), index=False)
-    
-    # Save aggregated results
-    agg_df = pd.DataFrame(aggregated_results)
-    agg_df.to_csv(os.path.join(output_dir, f'aggregated_results_{timestamp}.csv'), index=False)
+    # Save DataFrame results
+    if all_fold_results:
+        fold_df = pd.DataFrame(all_fold_results)
+        fold_path = os.path.join(output_dir, f'fold_results_{timestamp}.csv')
+        fold_df.to_csv(fold_path, index=False)
+        print(f"Saved fold results to: {fold_path}")
 
-    # Still keep the text summary
+    if all_model_results:
+        agg_df = pd.DataFrame(all_model_results)
+        agg_path = os.path.join(output_dir, f'aggregated_results_{timestamp}.csv')
+        agg_df.to_csv(agg_path, index=False)
+        print(f"Saved aggregated results to: {agg_path}")
+
+    # Create summary
     summary = "\nDetailed Summary of Cross-Validation Results:\n"
     for model_name, model_results in results.items():
         summary += f"\n{model_name}:\n"
@@ -225,6 +232,9 @@ def main():
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     with open(os.path.join(output_dir, f'cv_results_summary_{timestamp}.txt'), 'w') as f:
         f.write(summary)
+
+    with open(os.path.join(output_dir, f'cv_results_dict_{timestamp}.pkl'), 'wb') as f:
+        pickle.dump(results, f)
 
 if __name__ == "__main__":
     main()

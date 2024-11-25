@@ -1,6 +1,6 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/batch_all_user_grouped'
-  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/all_nfold/train'
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/final_salmo_user_grouped'
+  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/salmo_nfold/train'
   #test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/salmo_usergroup_nfold/test'
   batch_size: 32
   augmentation_magnitude: 0.6  # Adjust this value as needed
@@ -34,7 +34,7 @@ models:
   ResNet50:
     img_size: 224
     num_dense_layers: 128
-    unfreeze_layers: 36
+    unfreeze_layers: 98
 
 sampling:
   use_weights: false  # Set this to false to disable weights
