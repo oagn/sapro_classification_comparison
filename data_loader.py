@@ -6,7 +6,7 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 import pandas as pd
 from pathlib import Path
 import os
-from sklearn.model_selection import train_test_split, StratifiedKFold, GroupKFold
+from sklearn.model_selection import train_test_split, StratifiedKFold, StratifiedGroupKFold
 from imblearn.over_sampling import SMOTE
 
 
@@ -270,9 +270,9 @@ def prepare_cross_validation_data(data_dir, config, model_name, random_state=42)
     use_groups = config['training'].get('use_groups', False)
     
     if use_groups:
-        kfold = GroupKFold(n_splits=config['training']['n_folds'])
+        kfold = StratifiedGroupKFold(n_splits=config['training']['n_folds'], random_state=42)
         splits = kfold.split(df, y=df['strat_col'], groups=df['user'])
-        print("\nUsing GroupKFold with user grouping")
+        print("\nUsing StratifiedGroupKFold with user grouping")
     else:
         kfold = StratifiedKFold(n_splits=config['training']['n_folds'], shuffle=True, random_state=42)
         splits = kfold.split(df, df['strat_col'])
