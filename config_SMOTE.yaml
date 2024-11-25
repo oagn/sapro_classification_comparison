@@ -1,6 +1,6 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/final_onco_user_grouped'
-  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/onco_nfold/train'
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/final_salmo_onco_user_grouped'
+  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/salmo_onco_nfold/train'
   #test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/salmo_usergroup_nfold/test'
   batch_size: 32
   augmentation_magnitude: 0.6  # Adjust this value as needed
