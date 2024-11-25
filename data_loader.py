@@ -270,7 +270,7 @@ def prepare_cross_validation_data(data_dir, config, model_name, random_state=42)
     use_groups = config['training'].get('use_groups', False)
     
     if use_groups:
-        kfold = StratifiedGroupKFold(n_splits=config['training']['n_folds'], random_state=42)
+        kfold = StratifiedGroupKFold(n_splits=config['training']['n_folds'], shuffle=True,random_state=42)
         splits = kfold.split(df, y=df['strat_col'], groups=df['user'])
         print("\nUsing StratifiedGroupKFold with user grouping")
     else:
