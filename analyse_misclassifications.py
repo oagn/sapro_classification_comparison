@@ -29,56 +29,66 @@ def prepare_image(image_path, target_size=(224, 224)):
     img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
-def analyze_misclassifications(model_path, data_dir):
+def analyze_misclassifications(model, data_dir):
     """
     Analyze misclassifications across the entire dataset
     """
-    model = load_model(model_path)
-    
     # Get all image paths
     sapro_paths = list(Path(data_dir).glob('sapro/**/*.jpg')) + \
                  list(Path(data_dir).glob('sapro/**/*.jpeg')) + \
                  list(Path(data_dir).glob('sapro/**/*.png'))
-    nonsapro_paths = list(Path(data_dir).glob('non_sapro/**/*.jpg')) + \
-                    list(Path(data_dir).glob('non_sapro/**/*.jpeg')) + \
-                    list(Path(data_dir).glob('non_sapro/**/*.png'))
+    healthy_paths = list(Path(data_dir).glob('healthy/**/*.jpg')) + \
+                   list(Path(data_dir).glob('healthy/**/*.jpeg')) + \
+                   list(Path(data_dir).glob('healthy/**/*.png'))
     
     results = []
     
-    # Process all images
+    # Process sapro images
+    print(f"Processing {len(sapro_paths)} sapro images...")
     for path in sapro_paths:
-        img_array = prepare_image(path)
-        pred = model.predict(img_array, verbose=0)
-        pred_class = np.argmax(pred)
-        sapro_prob = pred[0][1]  # Assuming sapro is class 1
-        
-        results.append({
-            'image_path': str(path),
-            'true_label': 1,  # sapro
-            'predicted_label': pred_class,
-            'sapro_probability': sapro_prob,
-            'correct': pred_class == 1
-        })
+        try:
+            img_array = prepare_image(path)
+            pred = model.predict(img_array, verbose=0)
+            pred_class = np.argmax(pred[0])
+            sapro_prob = pred[0][1]  # Assuming sapro is class 1
+            
+            results.append({
+                'image_path': str(path),
+                'true_label': 1,  # sapro
+                'predicted_label': pred_class,
+                'sapro_probability': sapro_prob,
+                'is_correct': int(pred_class == 1)  # Explicitly cast to int
+            })
+        except Exception as e:
+            print(f"Error processing {path}: {str(e)}")
     
-    for path in nonsapro_paths:
-        img_array = prepare_image(path)
-        pred = model.predict(img_array, verbose=0)
-        pred_class = np.argmax(pred)
-        sapro_prob = pred[0][1]
-        
-        results.append({
-            'image_path': str(path),
-            'true_label': 0,  # non-sapro
-            'predicted_label': pred_class,
-            'sapro_probability': sapro_prob,
-            'correct': pred_class == 0
-        })
+    # Process healthy images
+    print(f"Processing {len(healthy_paths)} healthy images...")
+    for path in healthy_paths:
+        try:
+            img_array = prepare_image(path)
+            pred = model.predict(img_array, verbose=0)
+            pred_class = np.argmax(pred[0])
+            sapro_prob = pred[0][1]
+            
+            results.append({
+                'image_path': str(path),
+                'true_label': 0,  # healthy
+                'predicted_label': pred_class,
+                'sapro_probability': sapro_prob,
+                'is_correct': int(pred_class == 0)  # Explicitly cast to int
+            })
+        except Exception as e:
+            print(f"Error processing {path}: {str(e)}")
     
+    # Create DataFrame and verify columns
     results_df = pd.DataFrame(results)
+    print("\nDataFrame columns:", results_df.columns.tolist())
+    print("Number of rows:", len(results_df))
     
     # Analyze results
     print("\nOverall Performance:")
-    print(f"Accuracy: {(results_df['correct'].mean()):.3f}")
+    print(f"Accuracy: {(results_df['is_correct'].mean()):.3f}")
     
     # Confusion matrix analysis
     false_positives = results_df[
@@ -90,8 +100,8 @@ def analyze_misclassifications(model_path, data_dir):
         (results_df['predicted_label'] == 0)
     ]
     
-    print(f"\nNumber of False Positives (Non-sapro predicted as sapro): {len(false_positives)}")
-    print(f"Number of False Negatives (Sapro predicted as non-sapro): {len(false_negatives)}")
+    print(f"\nNumber of False Positives (Healthy predicted as sapro): {len(false_positives)}")
+    print(f"Number of False Negatives (Sapro predicted as healthy): {len(false_negatives)}")
     
     return results_df, false_positives, false_negatives
 
@@ -155,21 +165,21 @@ def plot_probability_distributions(results_df):
     # Sapro class predictions
     sapro_correct = results_df[
         (results_df['true_label'] == 1) & 
-        (results_df['correct'] == True)
+        (results_df['is_correct'] == True)
     ]['sapro_probability']
     sapro_incorrect = results_df[
         (results_df['true_label'] == 1) & 
-        (results_df['correct'] == False)
+        (results_df['is_correct'] == False)
     ]['sapro_probability']
     
     # Non-sapro class predictions
     nonsapro_correct = results_df[
         (results_df['true_label'] == 0) & 
-        (results_df['correct'] == True)
+        (results_df['is_correct'] == True)
     ]['sapro_probability']
     nonsapro_incorrect = results_df[
         (results_df['true_label'] == 0) & 
-        (results_df['correct'] == False)
+        (results_df['is_correct'] == False)
     ]['sapro_probability']
     
     # Plot distributions
@@ -199,7 +209,7 @@ def analyze_clusters(results_df, model, n_clusters=3):
     from sklearn.cluster import KMeans
     
     # Get misclassified images
-    misclassified = results_df[results_df['correct'] == False]
+    misclassified = results_df[results_df['is_correct'] == False]
     
     # Extract features for all misclassified images
     features_list = []
@@ -264,9 +274,8 @@ def analyze_clusters(results_df, model, n_clusters=3):
     return clusters, X_pca
 
 if __name__ == "__main__":
-    # Example usage
-    MODEL_PATH = "path/to/your/best/model"  # Your Keras model path
-    DATA_DIR = "path/to/image/directory"     # Directory containing sapro and non_sapro folders
+    MODEL_PATH = "path/to/your/best/model"
+    DATA_DIR = "path/to/image/directory"
     
     # Load model once
     model = load_model(MODEL_PATH)
