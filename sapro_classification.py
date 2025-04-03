@@ -2,9 +2,10 @@ import os
 os.environ["KERAS_BACKEND"] = "jax"
 
 import yaml
-from data_loader import load_data
 import matplotlib.pyplot as plt
 import datetime
+import numpy as np
+import jax
 
 def plot_training_history(history, model_name, output_dir):
     plt.figure(figsize=(12, 4))
@@ -29,120 +30,137 @@ def plot_training_history(history, model_name, output_dir):
     plt.savefig(os.path.join(output_dir, f'{model_name}_training_history.png'))
     plt.close()
 
-def main():
-    with open('/home/c.c1767198/workarea/sapro_classification_comparison/config.yaml', 'r') as f:
-        config = yaml.safe_load(f)
+def train_with_cross_validation(config, model_name):
+    """
+    Train model using cross-validation with JAX backend
+    """
 
-    from models import create_model, unfreeze_model
-    from train import train_model
+    from data_loader import prepare_cross_validation_data
+    from models import create_model
+    from train import train_fold
     from evaluate import evaluate_model
+
+    fold_datasets = prepare_cross_validation_data(
+        config['data']['train_dir'],
+        config,
+        model_name
+    )
+    
+    fold_results = []
+    for fold_idx, (train_ds, val_ds) in enumerate(fold_datasets):
+        # Create new model instance for this fold
+        model = create_model(model_name, config=config)
+        
+        # Train both phases
+        history, model = train_fold(
+            model, 
+            train_ds, 
+            val_ds, 
+            config, 
+            model_name,
+            fold_idx
+        )
+        
+        # Evaluate fold using validation data instead of test data
+        fold_eval = evaluate_model(
+            model, 
+            val_ds,  # Changed from test_dir to val_ds
+            config['data']['class_names'],
+            output_path=os.path.join(config['data']['output_dir'], f'fold_{fold_idx + 1}')
+        )
+        
+        fold_results.append({
+            'history': history,
+            'metrics': fold_eval
+        })
+        
+        # Clean up to free memory
+        del model
+        jax.clear_caches()
+    
+    return fold_results
+
+def plot_fold_histories(fold_results, model_name, output_dir):
+    """
+    Plot training histories for all folds
+    """
+    plt.figure(figsize=(15, 5))
+    
+    # Plot losses
+    plt.subplot(1, 2, 1)
+    for i, result in enumerate(fold_results):
+        if 'frozen' in result['history']:
+            plt.plot(result['history']['frozen']['val_loss'], 
+                    label=f'Fold {i+1} Frozen', linestyle='--')
+        if 'unfrozen' in result['history']:
+            plt.plot(result['history']['unfrozen']['val_loss'], 
+                    label=f'Fold {i+1} Unfrozen', linestyle='-')
+    plt.title(f'{model_name} - Validation Loss Across Folds')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    
+    # Plot accuracies
+    plt.subplot(1, 2, 2)
+    for i, result in enumerate(fold_results):
+        if 'frozen' in result['history']:
+            plt.plot(result['history']['frozen']['val_accuracy'], 
+                    label=f'Fold {i+1} Frozen', linestyle='--')
+        if 'unfrozen' in result['history']:
+            plt.plot(result['history']['unfrozen']['val_accuracy'], 
+                    label=f'Fold {i+1} Unfrozen', linestyle='-')
+    plt.title(f'{model_name} - Validation Accuracy Across Folds')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, f'{model_name}_fold_histories.png'))
+    plt.close()
+
+def main():
+    with open('/home/c.c1767198/workarea/sapro_classification_comparison/config_SMOTE.yaml', 'r') as f:
+        config = yaml.safe_load(f)
 
     output_dir = config['data']['output_dir']
     os.makedirs(output_dir, exist_ok=True)
 
     results = {}
-
     for model_name in config['models']:
-        print(f"Training {model_name}...")
-        train_ds, val_ds, test_ds, num_train_samples, num_val_samples = load_data(config, model_name)
-        print(f"Number of training samples: {num_train_samples}")
-        print(f"Number of validation samples: {num_val_samples}")
+        results[model_name] = train_with_cross_validation(config, model_name)
 
-        # Check a batch from each dataset
-        for batch in train_ds.take(1):
-            if len(batch) == 2:
-                x, y = batch
-                print(f"Training batch shape: features {x.shape}, labels {y.shape}")
-            elif len(batch) == 3:
-                x, y, w = batch
-                print(f"Training batch shape: features {x.shape}, labels {y.shape}, weights {w.shape}")
-            else:
-                print(f"Unexpected number of elements in training batch: {len(batch)}")
-                for i, element in enumerate(batch):
-                    print(f"Element {i} shape: {element.shape}")
-
-        for batch in val_ds.take(1):
-            if len(batch) == 2:
-                x, y = batch
-                print(f"Validation batch shape: features {x.shape}, labels {y.shape}")
-            elif len(batch) == 3:
-                x, y, w = batch
-                print(f"Validation batch shape: features {x.shape}, labels {y.shape}, weights {w.shape}")
-            else:
-                print(f"Unexpected number of elements in validation batch: {len(batch)}")
-                for i, element in enumerate(batch):
-                    print(f"Element {i} shape: {element.shape}")
-
-        steps_per_epoch = num_train_samples // config['data']['batch_size']
-        if steps_per_epoch == 0:
-            steps_per_epoch = 1  # Ensure at least one step per epoch
-        validation_steps = num_val_samples // config['data']['batch_size']
-
-        model = create_model(model_name, num_classes=2, config=config)
-           
-        # Initial training with frozen base model
-        print("Initial training with frozen base model...")
-        history_frozen = train_model(
-            model, 
-            train_ds, 
-            val_ds, 
-            config, 
-            learning_rate=config['training']['learning_rate'],
-            epochs=config['training']['initial_epochs'],
-            image_size=config['models'][model_name]['img_size'],
-            model_name=model_name,
-            is_fine_tuning=False
-        )
-        
-        # Plot and save training history for frozen model
-        plot_training_history(history_frozen, f"{model_name}_frozen", output_dir)
-        
-        # Unfreeze the top layers of the base model
-        print(f"Unfreezing top {config['models'][model_name]['unfreeze_layers']} layers of the model...")
-        model = unfreeze_model(model, config['models'][model_name]['unfreeze_layers'])
-        # Continue training with partially unfrozen model
-        print("Continuing training with partially unfrozen model...")
-        history_unfrozen = train_model(
-            model, 
-            train_ds, 
-            val_ds, 
-            config, 
-            learning_rate=config['training']['fine_tuning_lr'],
-            epochs=config['training']['fine_tuning_epochs'],
-            image_size=config['models'][model_name]['img_size'],
-            model_name=model_name,
-            is_fine_tuning=True
-        )
-        
-        # Plot and save training history for unfrozen model
-        plot_training_history(history_unfrozen, f"{model_name}_unfrozen", output_dir)
-        
-        print(f"Evaluating {model_name}...")
-        eval_results = evaluate_model(model, config['data']['test_dir'], ['healthy','sapro'], 
-                                      batch_size=config['data']['batch_size'], 
-                                      img_size=config['models'][model_name]['img_size'], 
-                                      output_path=config['data']['output_dir'])
-        
-        results[model_name] = eval_results
-
-        # Save the final model
-        model.save(os.path.join(output_dir, f"{model_name}_model_final.keras"))
-
-    # Print and save summary of results
-    summary = "\nSummary of Results:\n"
-    for model_name, eval_results in results.items():
+    # Print and save detailed summary
+    summary = "\nDetailed Summary of Cross-Validation Results:\n"
+    for model_name, model_results in results.items():
         summary += f"\n{model_name}:\n"
-        summary += f"  Macro F1 score: {eval_results['macro_f1']:.4f}\n"
-        summary += f"  Weighted F1 score: {eval_results['weighted_f1']:.4f}\n"
-        for i, f1 in enumerate(eval_results['f1_scores']):
-            summary += f"  F1 score for class {i}: {f1:.4f}\n"
+        
+        # Calculate averages across folds
+        avg_accuracy = np.mean([fold['metrics']['accuracy'] for fold in model_results])
+        avg_macro_f1 = np.mean([fold['metrics']['macro_f1'] for fold in model_results])
+        avg_weighted_f1 = np.mean([fold['metrics']['weighted_f1'] for fold in model_results])
+        
+        # Calculate per-class metrics
+        avg_precision = np.mean([fold['metrics']['precision_per_class'] for fold in model_results], axis=0)
+        avg_recall = np.mean([fold['metrics']['recall_per_class'] for fold in model_results], axis=0)
+        avg_f1 = np.mean([fold['metrics']['f1_per_class'] for fold in model_results], axis=0)
+        
+        # Write summary
+        summary += f"  Average Accuracy: {avg_accuracy:.4f}\n"
+        summary += f"  Average Macro F1: {avg_macro_f1:.4f}\n"
+        summary += f"  Average Weighted F1: {avg_weighted_f1:.4f}\n"
+        summary += "\n  Per-class metrics:\n"
+        
+        for i, class_name in enumerate(config['data']['class_names']):
+            summary += f"    {class_name}:\n"
+            summary += f"      Precision: {avg_precision[i]:.4f}\n"
+            summary += f"      Recall: {avg_recall[i]:.4f}\n"
+            summary += f"      F1: {avg_f1[i]:.4f}\n"
     
     print(summary)
     
-    # Save summary to file with model name
+    # Save summary
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    summary_filename = f'results_summary_{model_name}_{timestamp}.txt'
-    with open(os.path.join(output_dir, summary_filename), 'w') as f:
+    with open(os.path.join(output_dir, f'cv_results_summary_{timestamp}.txt'), 'w') as f:
         f.write(summary)
 
 if __name__ == "__main__":

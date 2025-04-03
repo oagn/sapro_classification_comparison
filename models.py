@@ -1,62 +1,83 @@
 import keras
 from keras import layers
+import numpy as np
+from keras.applications import (
+    ResNet50,
+    MobileNetV3Small,
+    EfficientNetV2B0,
+    EfficientNetV2S, 
+    EfficientNetV2M
+)
 
-def create_model(model_name, num_classes, config, weights_path=None):
-    print(f"Creating model: {model_name} with {num_classes} classes")
-    img_size = config['models'][model_name]['img_size']
+def get_base_model(model_name, config, weights_path=None):
+    """Get the base model architecture"""
+    input_shape = (config['models'][model_name]['img_size'],
+                  config['models'][model_name]['img_size'], 3)
     
-    if model_name == 'MobileNetV3L':
-        base_model = keras.applications.MobileNetV3Large(
-            input_shape=(img_size, img_size, 3),
-            include_top=False,
-            weights='imagenet',
-            pooling='avg'
-        )
-    elif model_name == 'MobileNetV3S':
-        base_model = keras.applications.MobileNetV3Small(
-            input_shape=(img_size, img_size, 3),
-            include_top=False,
-            weights='imagenet',
-            pooling='avg'
-        )
-    elif model_name == 'EfficientNetV2B0':
-        base_model = keras.applications.EfficientNetV2B0(
-            input_shape=(img_size, img_size, 3),
-            include_top=False,
-            weights='imagenet',
-            pooling='avg'
-        )
-    elif model_name == 'EfficientNetV2S':
-        base_model = keras.applications.EfficientNetV2S(
-            input_shape=(img_size, img_size, 3),
-            include_top=False,
-            weights='imagenet',
-            pooling='avg'
-        )
-    elif model_name == 'ResNet50':
-        base_model = keras.applications.ResNet50(
-            input_shape=(img_size, img_size, 3),
-            include_top=False,
-            weights='imagenet',
-            pooling='avg'
-        )
+    if model_name.startswith('ResNet50'):
+        return ResNet50(weights='imagenet', include_top=False, input_shape=input_shape)
+    elif model_name.startswith('MobileNetV3S'):
+        return MobileNetV3Small(weights='imagenet', include_top=False, input_shape=input_shape)
+    elif model_name.startswith('EfficientNetV2B0'):
+        return EfficientNetV2B0(weights='imagenet', include_top=False, input_shape=input_shape)
+    elif model_name.startswith('EfficientNetV2S'):
+        return EfficientNetV2S(weights='imagenet', include_top=False, input_shape=input_shape)
+    elif model_name.startswith('EfficientNetV2M'):
+        return EfficientNetV2M(weights='imagenet', include_top=False, input_shape=input_shape)
     else:
         raise ValueError(f"Unknown model name: {model_name}")
-    
-    # Freeze the base model
-    base_model.trainable = False
-    
-    x = layers.Dense(config['models'][model_name]['num_dense_layers'], activation='relu')(base_model.output)
-    x = layers.Dropout(0.2)(x)
-    outputs = layers.Dense(num_classes, activation='softmax', name='output_layer')(x)
 
+def create_model(model_name, config):
+    """
+    Create model with proper initialization for Focal Loss
+    """
+    weights_path = config['models'][model_name].get('weights_path', None)    
+    base_model = get_base_model(model_name, config)
+    
+    # Add classification head
+    x = base_model.output
+    x = keras.layers.GlobalAveragePooling2D()(x)  # Flatten the output to 2D
+    x = keras.layers.Dense(config['models'][model_name]['num_dense_layers'], activation='relu')(x)
+    x = keras.layers.Dropout(0.2)(x)
+    
+    # Calculate beta for final layer bias
+    num_classes = len(config['data']['class_names'])
+    if num_classes == 2:  # Only for binary classification
+        # Set pi to ~0.18 which gives beta ≈ -1.5
+        pi = 0.01 
+        beta = -np.log((1 - pi) / pi)
+        print(f"\nInitializing final layer bias with beta = {beta:.3f}")
+        print(f"This corresponds to a positive class prior of {pi:.1%}")
+    
+    # Initialize the final layer with bias for Focal Loss
+    if num_classes == 2:
+        # Binary classification
+        outputs = keras.layers.Dense(
+            2,
+            activation='sigmoid',
+            bias_initializer=keras.initializers.Constant(beta),
+            name='output'
+        )(x)
+    else:
+        # Multi-class classification
+        outputs = keras.layers.Dense(
+            num_classes,
+            activation='softmax',
+            bias_initializer=keras.initializers.Constant(beta),
+            name='output'
+        )(x)
+    
     model = keras.Model(inputs=base_model.input, outputs=outputs)
     
     if weights_path:
         print(f"Loading weights from {weights_path}")
         model.load_weights(weights_path, skip_mismatch=True)
-    
-    print(f"Model created with output shape: {model.output_shape}")
+    else:
+        print("No pre-trained weights provided. Using imagenet weights.")
+        
+    # Freeze base model layers for initial training
+    for layer in base_model.layers:
+        layer.trainable = False
     
     return model
 
