@@ -6,29 +6,8 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 import pandas as pd
 from pathlib import Path
 import os
-from sklearn.model_selection import train_test_split, StratifiedKFold, StratifiedGroupKFold
-from imblearn.over_sampling import SMOTE
+from sklearn.model_selection import StratifiedKFold, StratifiedGroupKFold
 
-
-def create_fixed_train(ds_path, samples_per_class=None):
-    # Selecting folder paths in dataset
-    dir_ = Path(ds_path)
-    ds_filepaths = list(dir_.glob(r'**/*.jpg'))
-    ds_filepaths.extend(list(dir_.glob(r'**/*.JPG')))
-    ds_filepaths.extend(list(dir_.glob(r'**/*.jpeg')))
-    ds_filepaths.extend(list(dir_.glob(r'**/*.png')))
-    ds_filepaths.extend(list(dir_.glob(r'**/*.PNG')))
-    # Mapping labels...
-    ds_labels = list(map(lambda x: os.path.split(os.path.split(x)[0])[1], ds_filepaths))
-    # Data set paths & labels
-    ds_filepaths = pd.Series(ds_filepaths, name='File').astype(str)
-    ds_labels = pd.Series(ds_labels, name='Label').astype(str)  # Convert to string
-    # Concatenating...
-    ds_df = pd.concat([ds_filepaths, ds_labels], axis=1)
-    ds_df = ds_df.sample(frac=1, random_state=42).reset_index(drop=True)
-    if samples_per_class is not None:
-        ds_df = ds_df.groupby('Label').sample(n=samples_per_class, replace=True)
-    return ds_df
 
 def create_fixed(ds_path):
     # Selecting folder paths in dataset
@@ -350,13 +329,3 @@ def prepare_cross_validation_data(data_dir, config, model_name, random_state=42)
         print(val_fold_df['Label'].value_counts())
     
     return fold_datasets
-
-
-def get_class_weights(df, label_col='sapro'):
-    """
-    Calculate class weights for weighted loss function
-    """
-    class_counts = df[label_col].value_counts()
-    total = len(df)
-    weights = {i: total/(2*count) for i, count in class_counts.items()}
-    return weights

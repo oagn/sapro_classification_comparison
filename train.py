@@ -4,10 +4,7 @@ import jax
 from jax.experimental.mesh_utils import create_device_mesh
 from jax.sharding import Mesh
 from keras_cv.losses import FocalLoss
-from data_loader import create_fixed_train, create_tensorset
 from models import unfreeze_model
-import pandas as pd
-import numpy as np
 import os
 
 
@@ -107,9 +104,6 @@ def train_fold(model, train_ds, val_ds, config, model_name, fold_idx):
     final_val_loss = frozen_history.history['val_loss'][-1]
     best_val_loss = min(frozen_history.history['val_loss'])
     
-    #if final_val_loss > best_val_loss * 1.1:  # If final loss is significantly worse than best
-    #    print("Early stopping triggered during frozen phase. Skipping unfrozen phase.")
-    #    return {'frozen': frozen_history.history}, model
     
     # Phase 2: Unfrozen training
     print(f"Phase 2: Fine-tuning with unfrozen layers...")

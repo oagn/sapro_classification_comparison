@@ -37,6 +37,7 @@ mkdir -p ${WDPATH}
 cd ${WDPATH}
 
 cp ${input_dir}/*.py ${WDPATH}
+cp ${input_dir}/config.yaml ${WDPATH}
 
 module purge
 module load anaconda

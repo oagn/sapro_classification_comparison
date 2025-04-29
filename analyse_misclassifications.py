@@ -1,5 +1,4 @@
 import keras
-import jax
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -8,7 +7,6 @@ import pandas as pd
 import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from keras.applications import EfficientNetV2S  # or whichever model you used
 
 def load_model(model_path):
     """
