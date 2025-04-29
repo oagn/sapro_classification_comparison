@@ -5,8 +5,7 @@ from keras.applications import (
     ResNet50,
     MobileNetV3Small,
     EfficientNetV2B0,
-    EfficientNetV2S, 
-    EfficientNetV2M
+    EfficientNetV2S
 )
 
 def get_base_model(model_name, config, weights_path=None):
@@ -22,8 +21,6 @@ def get_base_model(model_name, config, weights_path=None):
         return EfficientNetV2B0(weights='imagenet', include_top=False, input_shape=input_shape)
     elif model_name.startswith('EfficientNetV2S'):
         return EfficientNetV2S(weights='imagenet', include_top=False, input_shape=input_shape)
-    elif model_name.startswith('EfficientNetV2M'):
-        return EfficientNetV2M(weights='imagenet', include_top=False, input_shape=input_shape)
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
