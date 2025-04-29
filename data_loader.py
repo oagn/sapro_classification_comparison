@@ -6,31 +6,21 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 import pandas as pd
 from pathlib import Path
 import os
-from sklearn.model_selection import train_test_split, StratifiedKFold, StratifiedGroupKFold
-from imblearn.over_sampling import SMOTE
+from sklearn.model_selection import StratifiedKFold, StratifiedGroupKFold
 
-
-def create_fixed_train(ds_path, samples_per_class=None):
-    # Selecting folder paths in dataset
-    dir_ = Path(ds_path)
-    ds_filepaths = list(dir_.glob(r'**/*.jpg'))
-    ds_filepaths.extend(list(dir_.glob(r'**/*.JPG')))
-    ds_filepaths.extend(list(dir_.glob(r'**/*.jpeg')))
-    ds_filepaths.extend(list(dir_.glob(r'**/*.png')))
-    ds_filepaths.extend(list(dir_.glob(r'**/*.PNG')))
-    # Mapping labels...
-    ds_labels = list(map(lambda x: os.path.split(os.path.split(x)[0])[1], ds_filepaths))
-    # Data set paths & labels
-    ds_filepaths = pd.Series(ds_filepaths, name='File').astype(str)
-    ds_labels = pd.Series(ds_labels, name='Label').astype(str)  # Convert to string
-    # Concatenating...
-    ds_df = pd.concat([ds_filepaths, ds_labels], axis=1)
-    ds_df = ds_df.sample(frac=1, random_state=42).reset_index(drop=True)
-    if samples_per_class is not None:
-        ds_df = ds_df.groupby('Label').sample(n=samples_per_class, replace=True)
-    return ds_df
 
 def create_fixed(ds_path):
+    """Scans a directory for image files and creates a DataFrame.
+
+    Recursively searches for .jpg, .JPG, .jpeg, .png, .PNG files within the 
+    given directory path. Extracts the parent directory name as the initial label.
+
+    Args:
+        ds_path (str or Path): Path to the root directory containing class subdirectories.
+
+    Returns:
+        pd.DataFrame: DataFrame with columns 'File' (str path) and 'Label' (str).
+    """
     # Selecting folder paths in dataset
     dir_ = Path(ds_path)
     ds_filepaths = list(dir_.glob(r'**/*.jpg'))
@@ -49,10 +39,33 @@ def create_fixed(ds_path):
 
 
 def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sample_weights=None, model_name=None, config=None):
+    """Creates a tf.data.Dataset from a DataFrame of image paths and labels.
+
+    Handles image loading, resizing, preprocessing (model-specific), 
+    augmentation (RandAugment for training set), batching, and prefetching.
+    Labels are one-hot encoded based on config['data']['class_names'].
+    Includes optional handling for sample weights.
+
+    Args:
+        in_df (pd.DataFrame): DataFrame with 'File' and 'Label' columns.
+        img_size (int): Target image size (height and width).
+        batch_size (int): Dataset batch size.
+        magnitude (float): Magnitude for RandAugment (0 to disable).
+        ds_name (str): Name of the dataset ('train', 'validation', 'test'). 
+                       Controls whether augmentation and shuffling are applied.
+        sample_weights (np.array, optional): Array of sample weights to include 
+                                         in the dataset (only for ds_name='train').
+        model_name (str): Name of the model architecture (used for preprocessing).
+        config (dict): Configuration dictionary (used for class_names).
+
+    Returns:
+        tf.data.Dataset: The configured TensorFlow dataset.
+    """
     in_path = in_df['File'].values
     
+    # --- Label Encoding ---
     if config is not None and 'data' in config and 'class_names' in config['data']:
-        # Create a mapping from string labels to integer indices
+        # Preferred method: Use class_names from config for consistent encoding
         class_names = config['data']['class_names']
         label_to_index = {label: index for index, label in enumerate(class_names)}
         
@@ -78,7 +91,8 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
         # One-hot encode the integer indices
         in_class = tf.keras.utils.to_categorical(in_class, num_classes=len(class_names))
     else:
-        # Fallback to the previous method if config is not available
+        # Fallback method: Use sklearn LabelEncoder/OneHotEncoder if config is missing
+        print("Warning: Using LabelEncoder/OneHotEncoder for labels. Ensure config['data']['class_names'] is set for consistency.")
         label_encoder = LabelEncoder()
         in_class = label_encoder.fit_transform(in_df['Label'].values)
         in_class = in_class.reshape(len(in_class), 1)
@@ -99,8 +113,14 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
         return base_name
 
     def preprocess(img, model_name):
-        """
-        Preprocess image according to model requirements
+        """Preprocesses image according to specific model requirements.
+        
+        Args:
+            img (tf.Tensor): Input image tensor.
+            model_name (str): Name of the model architecture.
+        
+        Returns:
+            tf.Tensor: Preprocessed image tensor.
         """
         # Extract base model name
         base_model_name = get_base_model_name(model_name)
@@ -160,26 +180,23 @@ def create_tensorset(in_df, img_size, batch_size, magnitude, ds_name="train", sa
     
     return ds
 
-def print_dsinfo(ds_df, ds_name='default'):
-    print('Dataset: ' + ds_name)
-    print(f'Number of images in the dataset: {ds_df.shape[0]}')
-    print(ds_df['Label'].value_counts())
-    print(f'\n')
-
 
 def oversample_minority_class(train_fold_df, strategy='threshold', threshold_ratio=0.5, random_state=42):
-    """
-    Apply oversampling to minority class using different strategies
-    
-    Based on:
-    - Buda et al. (2018) "A systematic study of the class imbalance problem in CNNs"
-    - More et al. (2016) "Survey of resampling techniques for improving classification
-      performance in unbalanced datasets"
-    
-    Strategies:
-    - 'threshold': Oversample to reach a specified ratio of majority class
-    - 'match_majority': Oversample to match majority class count
-    - 'progressive': Progressively increase minority samples (sqrt of difference)
+    """Applies simple random oversampling to the minority class in a DataFrame.
+
+    Based on selected strategy:
+    - 'threshold': Oversample minority to reach (majority_count * threshold_ratio).
+    - 'match_majority': Oversample minority to match majority count.
+    - 'progressive': Oversample minority to minority_count + sqrt(difference).
+
+    Args:
+        train_fold_df (pd.DataFrame): DataFrame for the training fold ('Label' column required).
+        strategy (str): Oversampling strategy ('threshold', 'match_majority', 'progressive').
+        threshold_ratio (float): Ratio used for 'threshold' strategy.
+        random_state (int): Random state for sampling.
+
+    Returns:
+        pd.DataFrame: The training DataFrame potentially with oversampled minority class rows.
     """
     print("\nBefore oversampling:")
     print(train_fold_df['Label'].value_counts())
@@ -237,9 +254,110 @@ def oversample_minority_class(train_fold_df, strategy='threshold', threshold_rat
     
     return train_fold_df
 
-def prepare_cross_validation_data(data_dir, config, model_name, random_state=42):
+def _prepare_single_fold_data(df, train_idx, val_idx, config, model_name, fold_idx, random_state):
+    """Prepares training and validation datasets for a single CV fold.
+
+    Handles splitting, oversampling (optional), and dataset creation.
+
+    Args:
+        df (pd.DataFrame): The complete dataset DataFrame.
+        train_idx (np.array): Indices for the training split.
+        val_idx (np.array): Indices for the validation split.
+        config (dict): Configuration dictionary.
+        model_name (str): Name of the model architecture.
+        fold_idx (int): Current fold index.
+        random_state (int): Base random state for this fold.
+
+    Returns:
+        tuple: (train_dataset, val_dataset, train_fold_df, val_fold_df)
+            train_dataset (tf.data.Dataset): Training dataset for the fold.
+            val_dataset (tf.data.Dataset): Validation dataset for the fold.
+            train_fold_df (pd.DataFrame): DataFrame used for the training split.
+            val_fold_df (pd.DataFrame): DataFrame used for the validation split.
     """
-    Prepare data for k-fold cross validation with image data and oversampling
+    print(f"\nPreparing Fold {fold_idx + 1}")
+
+    # Split data for this fold
+    train_fold_df = df.iloc[train_idx].reset_index(drop=True)
+    val_fold_df = df.iloc[val_idx].reset_index(drop=True)
+
+    # Apply oversampling to training data if enabled
+    if config['training'].get('use_oversampling', False):
+        train_fold_df = oversample_minority_class(
+            train_fold_df,
+            strategy=config['training'].get('sampling_strategy', 'threshold'),
+            threshold_ratio=config['training'].get('threshold_ratio', 0.5),
+            random_state=random_state # Use fold-specific seed
+        )
+
+    # --- Print Fold Statistics (before creating tensors) ---
+    print("\nClass distribution in training fold:")
+    print(train_fold_df['Label'].value_counts())
+    print("\nClass distribution in validation fold:")
+    print(val_fold_df['Label'].value_counts())
+    print("\nSource distribution in training fold:")
+    print(train_fold_df['source'].value_counts())
+    print("\nTaxonomic distribution in training fold:")
+    print(train_fold_df['scientific_name_fixed'].value_counts())
+    
+    if config['training'].get('use_groups', False):
+        print("\nUser distribution in fold:")
+        train_users = train_fold_df['user'].unique()
+        val_users = val_fold_df['user'].unique()
+        print(f"  Training users: {len(train_users)}")
+        print(f"  Validation users: {len(val_users)}")
+        # Optional: Check for user overlap if strict separation is critical
+        # overlap = set(train_users).intersection(set(val_users))
+        # if overlap:
+        #     print(f"  Warning: User overlap between train/val: {len(overlap)} users")
+
+    # --- Create Datasets ---
+    img_size = config['models'][model_name]['img_size']
+    batch_size = config['data']['batch_size']
+    augmentation_magnitude = config['data'].get('augmentation_magnitude', 0.3)
+    
+    train_dataset = create_tensorset(
+        train_fold_df,
+        img_size,
+        batch_size,
+        augmentation_magnitude,
+        ds_name="train",
+        model_name=model_name,
+        config=config
+    )
+    
+    val_dataset = create_tensorset(
+        val_fold_df,
+        img_size,
+        batch_size,
+        0,  # No augmentation for validation
+        ds_name="validation",
+        model_name=model_name,
+        config=config
+    )
+    
+    print(f"\nFold {fold_idx + 1} Dataset Statistics:")
+    print(f"  Training samples (after oversampling): {len(train_fold_df)}")
+    print(f"  Validation samples: {len(val_fold_df)}")
+
+    return train_dataset, val_dataset, train_fold_df, val_fold_df
+
+def prepare_cross_validation_data(data_dir, config, model_name, random_state=42):
+    """Prepares data for k-fold cross-validation.
+
+    Loads images, merges metadata, performs stratified/grouped splitting,
+    handles optional oversampling within each fold's training split, 
+    and creates tf.data.Dataset objects for each fold.
+
+    Args:
+        data_dir (str): Path to the root directory containing class subdirectories.
+        config (dict): Configuration dictionary.
+        model_name (str): Name of the model architecture.
+        random_state (int): Base random state for splitting and sampling.
+
+    Returns:
+        list: A list of tuples, where each tuple contains (train_dataset, val_dataset) 
+              for a single fold.
     """
     # Load all image paths and labels
     df = create_fixed(data_dir)
@@ -251,112 +369,69 @@ def prepare_cross_validation_data(data_dir, config, model_name, random_state=42)
     df['filename'] = df['File'].apply(lambda x: os.path.basename(x))
     
     # Merge with metadata
+    print("\nMerging image data with metadata...")
     df = df.merge(
-        metadata[['data_row.external_id', 'user', 'source', 'scientific_name_fixed']],
+        metadata[['data_row.external_id', config['data']['group_column']] + config['data']['stratify_columns']],
         left_on='filename',
         right_on='data_row.external_id',
         how='left'
     )
+    # Ensure 'Label' is included after merge if dropped
+    if 'Label' not in df.columns:
+        df = df.merge(create_fixed(data_dir)[['File', 'Label']], on='File')
 
-        # Create combined stratification column
-    df['strat_col'] = df['source'] + '_' + df['scientific_name_fixed'] + '_' + df['Label'].astype(str)
+    # Create combined stratification column from specified columns + Label
+    strat_cols = config['data']['stratify_columns']
+    df['strat_col'] = df[strat_cols].astype(str).agg('_'.join, axis=1) + '_' + df['Label'].astype(str)
+    
+    # Handle potential missing metadata after merge
+    missing_metadata_count = df[config['data']['group_column']].isna().sum()
+    if missing_metadata_count > 0:
+        print(f"Warning: {missing_metadata_count} rows have missing group column ('{config['data']['group_column']}') after merge. Filling with 'unknown'.")
+        df[config['data']['group_column']] = df[config['data']['group_column']].fillna('unknown')
+        # Similarly handle missing stratify columns if necessary
+        for col in strat_cols:
+             if df[col].isna().any():
+                  print(f"Warning: Filling missing values in stratification column '{col}' with 'unknown'.")
+                  df[col] = df[col].fillna('unknown')
+        # Recreate strat_col after filling NaNs
+        df['strat_col'] = df[strat_cols].astype(str).agg('_'.join, axis=1) + '_' + df['Label'].astype(str)
+
     
     # Print merge statistics
     print("\nMerge Statistics:")
-    print(f"Original df shape: {len(df)}")
-    print(f"Rows with missing metadata: {df[['user', 'source', 'scientific_name_fixed']].isna().any(axis=1).sum()}")
+    print(f"  Original df shape: {len(df)}")
+    print(f"  Rows with missing group ('{config['data']['group_column']}'): {df[config['data']['group_column']].isna().sum()}") # Should be 0 now
     
-    # Choose fold strategy
+    # --- Prepare Cross-Validation Splits ---
     use_groups = config['training'].get('use_groups', False)
+    n_folds = config['training']['n_folds']
+    group_col = config['data']['group_column']
     
     if use_groups:
-        kfold = StratifiedGroupKFold(n_splits=config['training']['n_folds'], shuffle=True,random_state=42)
-        splits = kfold.split(df, y=df['strat_col'], groups=df['user'])
-        print("\nUsing StratifiedGroupKFold with user grouping")
+        kfold = StratifiedGroupKFold(n_splits=n_folds, shuffle=True, random_state=random_state)
+        # Ensure groups are not NaN
+        groups = df[group_col].fillna('unknown').astype(str) # Ensure groups are strings and handle NaN just in case
+        splits = kfold.split(df, y=df['strat_col'], groups=groups)
+        print(f"\nUsing StratifiedGroupKFold with group column '{group_col}' and {n_folds} folds.")
     else:
-        kfold = StratifiedKFold(n_splits=config['training']['n_folds'], shuffle=True, random_state=42)
+        kfold = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=random_state)
         splits = kfold.split(df, df['strat_col'])
-        print("\nUsing StratifiedKFold without grouping")
+        print(f"\nUsing StratifiedKFold with {n_folds} folds (no grouping).")
 
-    # Create datasets for each fold
-    fold_datasets = []
-    
-    # Get parameters from config
-    img_size = config['models'][model_name]['img_size']
-    batch_size = config['data']['batch_size']
-    augmentation_magnitude = config['data'].get('augmentation_magnitude', 0.3)
+    # --- Process Each Fold ---
+    all_fold_datasets = []
     
     for fold_idx, (train_idx, val_idx) in enumerate(splits):
-        print(f"\nPreparing Fold {fold_idx + 1}")
-        
-        # Split data for this fold
-        train_fold_df = df.iloc[train_idx].reset_index(drop=True)
-        val_fold_df = df.iloc[val_idx].reset_index(drop=True)
-        
-        # Apply oversampling to training data
-        if config['training'].get('use_oversampling', False):
-            train_fold_df = oversample_minority_class(
-                train_fold_df,
-                strategy=config['training'].get('sampling_strategy', 'threshold'),
-                threshold_ratio=config['training'].get('threshold_ratio', 0.5),
-                random_state=random_state + fold_idx  # Unique seed per fold
-            )
-        
-
-        print("\nClass distribution in training:")
-        print(train_fold_df['Label'].value_counts())
-        print("\nClass distribution in validation:")
-        print(val_fold_df['Label'].value_counts())
-        print("\nSource distribution in training:")
-        print(train_fold_df['source'].value_counts())
-        print("\nTaxonomic distribution in training:")
-        print(train_fold_df['scientific_name_fixed'].value_counts())
-        
-        if use_groups:
-            print("\nUser distribution:")
-            print(f"Training users: {len(train_fold_df['user'].unique())}")
-            print(f"Validation users: {len(val_fold_df['user'].unique())}")
-
-        # Create datasets
-        train_dataset = create_tensorset(
-            train_fold_df,
-            img_size,
-            batch_size,
-            augmentation_magnitude,
-            ds_name="train",
-            model_name=model_name,
-            config=config
+        train_ds, val_ds, _, _ = _prepare_single_fold_data(
+            df,
+            train_idx,
+            val_idx,
+            config,
+            model_name,
+            fold_idx,
+            random_state + fold_idx # Use unique seed per fold for sampling
         )
+        all_fold_datasets.append((train_ds, val_ds))
         
-        val_dataset = create_tensorset(
-            val_fold_df,
-            img_size,
-            batch_size,
-            0,  # No augmentation for validation
-            ds_name="validation",
-            model_name=model_name,
-            config=config
-        )
-        
-        fold_datasets.append((train_dataset, val_dataset))
-        
-        # Print fold statistics
-        print(f"\nFold {fold_idx + 1} Statistics:")
-        print(f"Training samples: {len(train_fold_df)}")
-        print(f"Validation samples: {len(val_fold_df)}")
-        print("\nClass distribution in training:")
-        print(train_fold_df['Label'].value_counts())
-        print("\nClass distribution in validation:")
-        print(val_fold_df['Label'].value_counts())
-    
-    return fold_datasets
-
-
-def get_class_weights(df, label_col='sapro'):
-    """
-    Calculate class weights for weighted loss function
-    """
-    class_counts = df[label_col].value_counts()
-    total = len(df)
-    weights = {i: total/(2*count) for i, count in class_counts.items()}
-    return weights
+    return all_fold_datasets

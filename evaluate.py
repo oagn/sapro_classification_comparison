@@ -13,17 +13,58 @@ import os
 
 def evaluate_model(model, test_dataset, class_names, batch_size=None, img_size=None, output_path=None):
     """
-    Evaluate model performance on test dataset or validation dataset
+    Evaluates a trained model on a given dataset and calculates common metrics.
+
+    Can handle input as either a directory path string or a tf.data.Dataset.
+    Calculates accuracy, confusion matrix, precision, recall, F1-score (per-class,
+    macro, weighted), and generates a classification report.
+    Optionally saves the confusion matrix plot and classification report to disk.
+
+    Args:
+        model (keras.Model): The trained Keras model to evaluate.
+        test_dataset (str | tf.data.Dataset): EITHER the path to the test dataset 
+            directory (structured with subdirs per class) OR a pre-processed 
+            tf.data.Dataset object.
+        class_names (list): A list of strings representing the class names in the 
+            correct order.
+        batch_size (int, optional): Batch size to use ONLY if test_dataset is a 
+            directory path. Defaults to None. Should be provided if using path input.
+        img_size (tuple, optional): Target image size (height, width) ONLY if 
+            test_dataset is a directory path. Defaults to None. Should be 
+            provided if using path input.
+        output_path (str, optional): Directory path to save the confusion matrix 
+            plot ('confusion_matrix.png') and classification report 
+            ('classification_report.txt'). If None, files are not saved. 
+            Defaults to None.
+
+    Returns:
+        dict: A dictionary containing the calculated evaluation metrics:
+            - 'accuracy': Overall accuracy.
+            - 'confusion_matrix': The confusion matrix (numpy array).
+            - 'classification_report': The classification report string.
+            - 'precision_per_class': Precision for each class.
+            - 'recall_per_class': Recall for each class.
+            - 'f1_per_class': F1-score for each class.
+            - 'support_per_class': Support (number of samples) for each class.
+            - 'macro_f1': Macro-averaged F1-score.
+            - 'weighted_f1': Weighted-averaged F1-score.
     """
-    os.makedirs(output_path, exist_ok=True)
+    if output_path:
+        os.makedirs(output_path, exist_ok=True)
+        
     class_ids = list(range(len(class_names)))
     all_preds = []
     all_true = []
     
+    # --- Get Predictions and True Labels ---
     if isinstance(test_dataset, str):
-        # Process directory path
+        # Input is a directory path
+        print(f"Evaluating model using directory: {test_dataset}")
+        if not batch_size or not img_size:
+            raise ValueError("batch_size and img_size must be provided when test_dataset is a directory path.")
+            
         for i, spp_class in enumerate(class_names):
-            print(f"\nEvaluating class '{spp_class}' ({(i+1)}/ {len(class_names)})")
+            print(f"\nProcessing class '{spp_class}' ({(i+1)}/ {len(class_names)}) for ground truth")
             img_generator = tf.keras.preprocessing.image_dataset_from_directory(
                 os.path.join(test_dataset, spp_class),
                 labels=None,
@@ -39,8 +80,8 @@ def evaluate_model(model, test_dataset, class_names, batch_size=None, img_size=N
             all_preds.extend(y_pred_tmp)
             all_true.extend(y_true_tmp)
     else:
-        # Process TensorFlow dataset
-        print("\nEvaluating validation dataset...")
+        # Input is a tf.data.Dataset
+        print("\nEvaluating model using provided tf.data.Dataset...")
         predictions = model.predict(test_dataset)
         
         # Collect all true labels
@@ -54,7 +95,8 @@ def evaluate_model(model, test_dataset, class_names, batch_size=None, img_size=N
         all_preds = [pred.argmax() for pred in predictions]
         all_true = [label.argmax() for label in true_labels]
     
-    # Calculate all metrics
+    # --- Calculate Metrics ---
+    print("\nCalculating evaluation metrics...")
     accuracy = accuracy_score(all_true, all_preds)
     conf_matrix = confusion_matrix(all_true, all_preds)
     precision, recall, f1, support = precision_recall_fscore_support(all_true, all_preds)
@@ -63,8 +105,10 @@ def evaluate_model(model, test_dataset, class_names, batch_size=None, img_size=N
     classification_rep = classification_report(all_true, all_preds, target_names=class_names)
     print(classification_rep)
     
-    # Save results
+    # --- Save Results (Optional) ---
     if output_path:
+        print(f"\nSaving evaluation results to: {output_path}")
+        # Save confusion matrix plot
         plt.figure(figsize=(10, 8))
         sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues',
                     xticklabels=class_names, yticklabels=class_names)

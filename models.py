@@ -8,8 +8,19 @@ from keras.applications import (
     EfficientNetV2S
 )
 
-def get_base_model(model_name, config, weights_path=None):
-    """Get the base model architecture"""
+def get_base_model(model_name, config):
+    """Loads a pre-trained base model architecture from Keras Applications.
+
+    Args:
+        model_name (str): Name of the model (e.g., 'ResNet50', 'EfficientNetV2S').
+        config (dict): Configuration dictionary containing model parameters like img_size.
+
+    Returns:
+        keras.Model: The loaded base model instance with include_top=False.
+    
+    Raises:
+        ValueError: If the model_name is not recognized.
+    """
     input_shape = (config['models'][model_name]['img_size'],
                   config['models'][model_name]['img_size'], 3)
     
@@ -26,7 +37,22 @@ def get_base_model(model_name, config, weights_path=None):
 
 def create_model(model_name, config):
     """
-    Create model with proper initialization for Focal Loss
+    Creates the complete Keras model for training.
+
+    Steps:
+    1. Loads the specified base model using get_base_model.
+    2. Adds a classification head (GlobalAveragePooling, Dense, Dropout).
+    3. Initializes the final Dense layer bias for binary classification 
+       (helps with Focal Loss and imbalanced data).
+    4. Optionally loads pre-trained weights if specified in config.
+    5. Freezes the base model layers for initial transfer learning.
+
+    Args:
+        model_name (str): Name of the base model architecture.
+        config (dict): Configuration dictionary.
+
+    Returns:
+        keras.Model: The complete, compiled Keras model ready for initial training.
     """
     weights_path = config['models'][model_name].get('weights_path', None)    
     base_model = get_base_model(model_name, config)
@@ -67,10 +93,12 @@ def create_model(model_name, config):
     model = keras.Model(inputs=base_model.input, outputs=outputs)
     
     if weights_path:
-        print(f"Loading weights from {weights_path}")
-        model.load_weights(weights_path, skip_mismatch=True)
+        print(f"Loading custom weights from: {weights_path}")
+        # skip_mismatch=True allows loading weights even if the head differs
+        model.load_weights(weights_path, skip_mismatch=True) 
     else:
-        print("No pre-trained weights provided. Using imagenet weights.")
+        # Defaults to imagenet weights loaded in get_base_model
+        print(f"Using default 'imagenet' weights for {model_name}.") 
         
     # Freeze base model layers for initial training
     for layer in base_model.layers:
@@ -80,7 +108,22 @@ def create_model(model_name, config):
 
 
 def unfreeze_model(model, num_layers_to_unfreeze):
-    # First, make the entire model trainable
+    """Unfreezes the last N layers of a model for fine-tuning.
+
+    It first sets the entire model as trainable, then freezes layers 
+    from the beginning up to the point specified by num_layers_to_unfreeze.
+    Crucially, it keeps all BatchNormalization layers frozen throughout the model,
+    which is generally recommended during fine-tuning.
+
+    Args:
+        model (keras.Model): The model to modify.
+        num_layers_to_unfreeze (int): The number of layers to keep trainable 
+                                     (counting from the output layer backwards).
+
+    Returns:
+        keras.Model: The modified model with layers appropriately frozen/unfrozen.
+    """
+    # First, set the entire model to trainable
     model.trainable = True
     for layer in model.layers:
         layer.trainable = True

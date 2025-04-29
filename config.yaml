@@ -1,19 +1,27 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/salmo_user_grouped_M0.7'
-  #train_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/train'
-  #val_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/validate'
-  #test_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/test'
-  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_salmo_EA_usergroup/train'
-  val_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_salmo_EA_usergroup/val'
-  test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_salmo_EA_usergroup/test'
+  # --- Directories and Paths ---
+  output_dir: '/output/directory/path'
+  train_dir: '/train/directory/path'
+  metadata_path: "/metadata/path"
+  weights_path: null  # Optional path to pre-trained weights (e.g., .h5 file)
+
+  # --- Dataset Parameters ---
   batch_size: 32
-  augmentation_magnitude: 0.7  # Adjust this value as needed
+  augmentation_magnitude: 0.6  # Controls RandAugment strength (0=off)
   num_classes: 2
-  class_names: ['healthy','sapro']
-  #weights_path: '/scratch/c.c1767198/output/V2M_wildlife_no_possum.weights.h5'
-  weights_path: null
+  class_names: ['healthy','sapro'] # Must match folder names in train_dir
+
+  # --- Grouping and Stratification (for cross-validation) ---
+  group_column: "user" # Column in metadata for GroupKFold
+  stratify_columns: 
+    - "source"
+    - "scientific_name_fixed" # Columns in metadata for stratification
 
 models:
+  # --- Model-Specific Configurations ---
+  # img_size: Input image dimensions (height, width)
+  # num_dense_layers: Number of units in the added dense layer before classification
+  # unfreeze_layers: Number of layers to unfreeze from the end during fine-tuning
   MobileNetV3S:
     img_size: 224
     num_dense_layers: 128
@@ -26,35 +34,27 @@ models:
     img_size: 300
     num_dense_layers: 512
     unfreeze_layers: 363
-  #EfficientNetV2M:
-  #  img_size: 384
-  #  num_dense_layers: 512
-  #  unfreeze_layers: 348
   ResNet50:
     img_size: 224
     num_dense_layers: 128
-    unfreeze_layers: 36
+    unfreeze_layers: 98
 
 training:
-  initial_epochs: 20
-  fine_tuning_epochs: 40
-  learning_rate: 0.001
-  fine_tuning_lr: 0.00001
-  focal_loss_gamma: 2.0
-  new_dataset_per_epoch: true  # Set to true to enable new dataset creation per epoch
-  early_stopping_patience: 10  # Add this line, adjust the value as needed
+  # --- Epochs ---
+  initial_epochs: 20      # Epochs for training with frozen base model
+  fine_tuning_epochs: 40  # Epochs for training after unfreezing layers
 
-sampling:
-  use_weights: false  # Set this to false to disable weights
-  method: mild_square_root
-  power: 0.3
-  samples_per_class: 400  # Optional: specify the number of samples per class, or omit to use the minimum class size
+  # --- Learning Rates ---
+  learning_rate: 0.001    # Initial learning rate (frozen phase)
+  fine_tuning_lr: 0.00001 # Learning rate for fine-tuning (unfrozen phase)
 
-#pseudo_labeling:
-#  model_name: 'EfficientNetV2S'
-#  model_path: '/scratch/c.c1767198/output/Possum_classification/wildlife_weights_run/EfficientNetV2S_model_final.keras'
-#  unlabeled_data_dir: '/scratch/c.c1767198/data/possums/unlabeled_possums'
-#  confidence_threshold: 0.9  # or even 0.5, depending on your needs
-#  retraining_epochs: 20
-#  use_all_samples: false  # Set to true to use all samples, false to use a subset
-#  num_samples_per_epoch: 1300  # Number of samples to use if not using all
+  # --- Loss and Callbacks ---
+  focal_loss_gamma: 2.0   # Gamma parameter for FocalLoss
+  early_stopping_patience: 10 # Patience for EarlyStopping callback
+
+  # --- Cross-Validation and Sampling ---
+  use_groups: true      # Use StratifiedGroupKFold based on `group_column` if true, else StratifiedKFold
+  n_folds: 5            # Number of cross-validation folds
+  use_oversampling: true # Enable simple random oversampling of minority class in training folds
+  sampling_strategy: "match_majority"  # Oversampling method ('threshold', 'match_majority', 'progressive')
+  threshold_ratio: 0.5  # Ratio for 'threshold' strategy (minority samples = ratio * majority samples)
