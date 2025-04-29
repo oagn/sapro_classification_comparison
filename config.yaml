@@ -1,17 +1,18 @@
 data:
-  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/salmo_user_grouped_M0.7'
-  #train_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/train'
-  #val_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/validate'
-  #test_dir: '/scratch/c.c1767198/data/possums/near_dupe_sorted/test'
-  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_salmo_EA_usergroup/train'
-  val_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_salmo_EA_usergroup/val'
-  test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/stratified_salmo_EA_usergroup/test'
+  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/final_retry_both_user_grouped'
+  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/both_nfold/train'
+  #test_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/salmo_usergroup_nfold/test'
   batch_size: 32
-  augmentation_magnitude: 0.7  # Adjust this value as needed
+  augmentation_magnitude: 0.6  # Adjust this value as needed
   num_classes: 2
   class_names: ['healthy','sapro']
   #weights_path: '/scratch/c.c1767198/output/V2M_wildlife_no_possum.weights.h5'
   weights_path: null
+  metadata_path: "/scratch/c.c1767198/data/fishDatabase/full_combined_metadata_scientific_nodupes.csv"
+  group_column: "user"
+  stratify_columns: 
+    - "source"
+    - "scientific_name_fixed"
 
 models:
   MobileNetV3S:
@@ -26,14 +27,17 @@ models:
     img_size: 300
     num_dense_layers: 512
     unfreeze_layers: 363
-  #EfficientNetV2M:
-  #  img_size: 384
-  #  num_dense_layers: 512
-  #  unfreeze_layers: 348
   ResNet50:
     img_size: 224
     num_dense_layers: 128
-    unfreeze_layers: 36
+    unfreeze_layers: 98
+
+sampling:
+  use_weights: false  # Set this to false to disable weights
+  method: mild_square_root
+  power: 0.3
+  #samples_per_class: 400  # Optional: specify the number of samples per class, or omit to use the minimum class size
+
 
 training:
   initial_epochs: 20
@@ -41,20 +45,10 @@ training:
   learning_rate: 0.001
   fine_tuning_lr: 0.00001
   focal_loss_gamma: 2.0
-  new_dataset_per_epoch: true  # Set to true to enable new dataset creation per epoch
+  new_dataset_per_epoch: false  # Set to true to enable new dataset creation per epoch
   early_stopping_patience: 10  # Add this line, adjust the value as needed
-
-sampling:
-  use_weights: false  # Set this to false to disable weights
-  method: mild_square_root
-  power: 0.3
-  samples_per_class: 400  # Optional: specify the number of samples per class, or omit to use the minimum class size
-
-#pseudo_labeling:
-#  model_name: 'EfficientNetV2S'
-#  model_path: '/scratch/c.c1767198/output/Possum_classification/wildlife_weights_run/EfficientNetV2S_model_final.keras'
-#  unlabeled_data_dir: '/scratch/c.c1767198/data/possums/unlabeled_possums'
-#  confidence_threshold: 0.9  # or even 0.5, depending on your needs
-#  retraining_epochs: 20
-#  use_all_samples: false  # Set to true to use all samples, false to use a subset
-#  num_samples_per_epoch: 1300  # Number of samples to use if not using all
+  use_groups: true  # Set to true to enable grouping by user
+  n_folds: 5
+  use_oversampling: true  # Enable oversampling
+  sampling_strategy: "match_majority"  # Options: "threshold", "match_majority", "progressive"
+  threshold_ratio: 0.5  # Only used if strategy is "threshold"
