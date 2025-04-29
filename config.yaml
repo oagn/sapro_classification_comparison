@@ -1,8 +1,8 @@
 data:
   # --- Directories and Paths ---
-  output_dir: '/scratch/c.c1767198/output/sapro_classification_comparison/final_retry_both_user_grouped'
-  train_dir: '/scratch/c.c1767198/data/fishDatabase/final_splits/both_nfold/train'
-  metadata_path: "/scratch/c.c1767198/data/fishDatabase/full_combined_metadata_scientific_nodupes.csv"
+  output_dir: '/output/directory/path'
+  train_dir: '/train/directory/path'
+  metadata_path: "/metadata/path"
   weights_path: null  # Optional path to pre-trained weights (e.g., .h5 file)
 
   # --- Dataset Parameters ---
