@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project trains and evaluates several deep learning models (using Keras with a JAX backend) for the binary classification of fish images into 'healthy' and 'sapro' (infected with Saprolegnia). It utilizes k-fold cross-validation with optional stratified grouping and oversampling techniques. The project also includes a separate script for detailed analysis of model misclassifications.
+This project trains and evaluates several deep learning models (using Keras with a JAX backend) for the binary classification of fish images into 'healthy' and 'sapro' (infected with <i>Saprolegnia</i> spp.). It utilizes k-fold cross-validation with optional stratified grouping and oversampling techniques. The project also includes a separate script for detailed analysis of model misclassifications.
 
 ## Project Structure
 
@@ -44,8 +44,6 @@ Key dependencies include:
 *   Seaborn
 *   Pillow (PIL)
 *   imblearn (if using SMOTE was intended, otherwise can be removed from env)
-
-*(Optional: Consider creating an `environment.yml` or `requirements.txt` file for easier environment recreation).*
 
 ### 2. Data Preparation
 
