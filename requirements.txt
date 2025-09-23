@@ -1,0 +1,14 @@
+opencv-python
+numpy
+pandas
+tqdm
+keras-cv
+keras
+tensorflow
+scikit-learn
+jax
+jax-plugins
+matplotlib
+seaborn
+Pillow
+PyYAML
