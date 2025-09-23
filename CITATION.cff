@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Olsen"
+    given-names: "Agnethe S."
+    affiliation: "School of Biosciences and Water Research Institute, Cardiff University, Cardiff, CF10 3AX, United Kingdom"
+  - family-names: "Rosin"
+    given-names: "Paul L."
+    affiliation: "School of Computer Science and Informatics, Cardiff University, Cardiff, CF24 4AG, United Kingdom"
+  - family-names: "Jones"
+    given-names: "Christopher B."
+    affiliation: "School of Computer Science and Informatics, Cardiff University, Cardiff, CF24 4AG, United Kingdom"
+  - family-names: "Cable"
+    given-names: "Jo"
+    affiliation: "School of Biosciences and Water Research Institute, Cardiff University, Cardiff, CF10 3AX, United Kingdom"
+  - family-names: "Perkins"
+    given-names: "Sarah E."
+    affiliation: "School of Biosciences and Water Research Institute, Cardiff University, Cardiff, CF10 3AX, United Kingdom"
+title: "Computer vision for infectious disease surveillance; Saprolegnia spp. in salmonids"
+version: 1.0.0
+date-released: 2025-09-23
