@@ -11,7 +11,7 @@ from sklearn.cluster import KMeans
 import argparse
 
 # Define class names for consistency
-CLASS_NAMES = ['healthy', 'sapro'] 
+CLASS_NAMES = ['healthy', 'sapro']
 # Ensure this order matches the model's output and directory structure
 SAPRO_INDEX = CLASS_NAMES.index('sapro')
 HEALTHY_INDEX = CLASS_NAMES.index('healthy')
@@ -55,7 +55,7 @@ def prepare_image(image_path, target_size=(224, 224)):
     img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
-def analyze_misclassifications(model, data_dir):
+def analyze_misclassifications(model, data_dir, sharpness_csv=None):
     """Analyzes model predictions across image files in specified subdirectories.
 
     Assumes a directory structure like:
@@ -69,6 +69,7 @@ def analyze_misclassifications(model, data_dir):
     Args:
         model (keras.Model): The loaded Keras model to use for predictions.
         data_dir (str): Path to the root directory containing 'healthy' and 'sapro' subdirs.
+        sharpness_csv (str, optional): Path to a CSV file containing sharpness scores.
 
     Returns:
         tuple: (results_df, false_positives_df, false_negatives_df)
@@ -133,6 +134,35 @@ def analyze_misclassifications(model, data_dir):
         print("Warning: No images processed successfully. Result DataFrame is empty.")
         # Return empty dataframes to avoid errors later
         return results_df, results_df.iloc[0:0], results_df.iloc[0:0] 
+
+    # --- Merge with Sharpness Data (if provided) ---
+    if sharpness_csv:
+        try:
+            print(f"\nMerging with sharpness data from: {sharpness_csv}")
+            sharpness_df = pd.read_csv(sharpness_csv)
+            # Ensure the column names match for merging
+            # Assuming sharpness CSV has 'file_path' and 'sharpness_score'
+            # and our results_df has 'image_path'
+            results_df = pd.merge(
+                results_df, 
+                sharpness_df, 
+                left_on='image_path', 
+                right_on='file_path', 
+                how='left'
+            )
+            # Drop the redundant file_path column
+            results_df = results_df.drop(columns=['file_path'])
+            
+            missing_sharpness = results_df['sharpness_score'].isna().sum()
+            if missing_sharpness > 0:
+                print(f"Warning: {missing_sharpness} images were not found in the sharpness CSV.")
+            else:
+                print("Sharpness data merged successfully.")
+
+        except FileNotFoundError:
+            print(f"Error: Sharpness CSV not found at '{sharpness_csv}'. Continuing without sharpness data.")
+        except Exception as e:
+            print(f"An error occurred while merging sharpness data: {e}. Continuing without it.")
         
     print("\nDataFrame columns:", results_df.columns.tolist())
     print("Number of rows:", len(results_df))
@@ -206,7 +236,10 @@ def plot_misclassified_examples(df, category='false_positives', num_examples=5):
             img = Image.open(row['image_path'])
             axes[i].imshow(img)
             axes[i].axis('off')
-            axes[i].set_title(f"True: {CLASS_NAMES[int(row['true_label'])]}\nPred: {CLASS_NAMES[int(row['predicted_label'])]}\nProb(Sapro)={row['sapro_probability']:.3f}")
+            title = f"True: {CLASS_NAMES[int(row['true_label'])]}\nPred: {CLASS_NAMES[int(row['predicted_label'])]}\nProb(Sapro)={row['sapro_probability']:.3f}"
+            if 'sharpness_score' in row and pd.notna(row['sharpness_score']):
+                title += f"\nSharpness={row['sharpness_score']:.2f}"
+            axes[i].set_title(title)
         except Exception as e:
             print(f"Error loading/plotting image {row['image_path']}: {e}")
             axes[i].set_title("Error loading image")
@@ -215,51 +248,6 @@ def plot_misclassified_examples(df, category='false_positives', num_examples=5):
     plt.suptitle(f"{title_prefix} (Top {num_to_plot} examples)")
     plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout to prevent title overlap
     plt.show()
-
-def extract_features(model, image_path, target_size=(224, 224)):
-    """Extracts features from a specified layer of the model for a single image.
-
-    By default, extracts from the second-to-last layer (model.layers[-2]), 
-    assuming this is the layer before the final classification layer.
-
-    Args:
-        model (keras.Model): The loaded Keras model.
-        image_path (str or Path): Path to the image file.
-        target_size (tuple): Target size (height, width) to resize the image 
-                             (should match the size used in prepare_image).
-
-    Returns:
-        np.array: The extracted feature vector for the image.
-    """
-    # --- Feature Extractor Model ---
-    # Assumption: The second-to-last layer contains the desired features.
-    # This might need adjustment depending on the specific model architecture.
-    try:
-        feature_layer = model.layers[-2]
-        feature_model = keras.Model(
-            inputs=model.input,
-            outputs=feature_layer.output 
-        )
-        print(f"Extracting features from layer: {feature_layer.name} (index -2)")
-    except Exception as e:
-        print(f"Error creating feature extraction model from layer -2: {e}")
-        print("Cannot proceed with feature extraction.")
-        return None
-    
-    # --- Prepare Image ---
-    try:
-        img_array = prepare_image(image_path, target_size=target_size)
-    except Exception as e:
-        print(f"Error preparing image {image_path} for feature extraction: {e}")
-        return None
-        
-    # --- Extract Features ---
-    try:
-        features = feature_model.predict(img_array, verbose=0)
-        return features[0]  # Remove batch dimension
-    except Exception as e:
-        print(f"Error predicting features for {image_path}: {e}")
-        return None
 
 def plot_probability_distributions(results_df):
     """Plots the distribution of predicted 'sapro' probabilities.
@@ -303,6 +291,81 @@ def plot_probability_distributions(results_df):
     
     plt.tight_layout()
     plt.show()
+
+def plot_sharpness_distributions(results_df):
+    """Plots the distribution of sharpness scores for correct vs. incorrect predictions.
+
+    Args:
+        results_df (pd.DataFrame): DataFrame with prediction results, requiring 
+                                 'is_correct' and 'sharpness_score' columns.
+    """
+    if 'sharpness_score' not in results_df.columns or results_df['sharpness_score'].isna().all():
+        print("\nSkipping sharpness distribution plot: 'sharpness_score' column not found or is all empty.")
+        return
+
+    print("\nPlotting sharpness score distributions...")
+    plt.figure(figsize=(10, 6))
+    
+    correct_scores = results_df[results_df['is_correct'] == True]['sharpness_score'].dropna()
+    incorrect_scores = results_df[results_df['is_correct'] == False]['sharpness_score'].dropna()
+
+    if not correct_scores.empty:
+        sns.kdeplot(data=correct_scores, label='Correct', color='green', fill=True, alpha=0.2)
+    if not incorrect_scores.empty:
+        sns.kdeplot(data=incorrect_scores, label='Incorrect', color='red', fill=True, alpha=0.2)
+    
+    plt.title('Distribution of Image Sharpness for Correct vs. Incorrect Predictions')
+    plt.xlabel('Sharpness Score (Variance of Laplacian)')
+    plt.ylabel('Density')
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.show()
+
+def extract_features(model, image_path, target_size=(224, 224)):
+    """Extracts features from a specified layer of the model for a single image.
+
+    By default, extracts from the second-to-last layer (model.layers[-2]), 
+    assuming this is the layer before the final classification layer.
+
+    Args:
+        model (keras.Model): The loaded Keras model.
+        image_path (str or Path): Path to the image file.
+        target_size (tuple): Target size (height, width) to resize the image 
+                             (should match the size used in prepare_image).
+
+    Returns:
+        np.array: The extracted feature vector for the image.
+    """
+    # --- Feature Extractor Model ---
+    # Assumption: The second-to-last layer contains the desired features.
+    # This might need adjustment depending on the specific model architecture.
+    try:
+        feature_layer = model.layers[-2]
+        feature_model = keras.Model(
+            inputs=model.input,
+            outputs=feature_layer.output 
+        )
+        # Suppress repeated print statements for feature extraction
+        # print(f"Extracting features from layer: {feature_layer.name} (index -2)")
+    except Exception as e:
+        print(f"Error creating feature extraction model from layer -2: {e}")
+        print("Cannot proceed with feature extraction.")
+        return None
+    
+    # --- Prepare Image ---
+    try:
+        img_array = prepare_image(image_path, target_size=target_size)
+    except Exception as e:
+        print(f"Error preparing image {image_path} for feature extraction: {e}")
+        return None
+        
+    # --- Extract Features ---
+    try:
+        features = feature_model.predict(img_array, verbose=0)
+        return features[0]  # Remove batch dimension
+    except Exception as e:
+        print(f"Error predicting features for {image_path}: {e}")
+        return None
 
 def analyze_clusters(results_df, model, n_clusters=3):
     """Performs feature extraction, PCA, and KMeans clustering on misclassified images.
@@ -434,6 +497,8 @@ if __name__ == "__main__":
                         help="Number of clusters for KMeans analysis of misclassified images.")
     parser.add_argument("--num_examples", type=int, default=5, 
                         help="Number of example misclassified images to plot per category.")
+    parser.add_argument("-s", "--sharpness_csv", default=None,
+                        help="Path to the CSV file containing image sharpness scores to merge.")
 
     args = parser.parse_args()
 
@@ -444,12 +509,15 @@ if __name__ == "__main__":
     
     # Analyze all misclassifications
     results_df, false_positives, false_negatives = analyze_misclassifications(
-        model, args.data_dir
+        model, args.data_dir, sharpness_csv=args.sharpness_csv
     )
     
     if not results_df.empty:
         # Plot probability distributions
         plot_probability_distributions(results_df)
+
+        # Plot sharpness distributions if data is available
+        plot_sharpness_distributions(results_df)
         
         # Perform clustering analysis
         clusters, pca_coords = analyze_clusters(results_df, model, n_clusters=args.n_clusters)

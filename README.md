@@ -16,6 +16,11 @@ This project trains and evaluates several deep learning models (using Keras with
 ├── sapro.sh                      # SLURM batch script to run the training pipeline on an HPC cluster.
 ├── sapro_classification.py       # Main script for running the cross-validation training and evaluation pipeline.
 ├── train.py                      # Contains functions for training models (frozen and unfrozen phases).
+├── download_dataset.ipynb        # Jupyter Notebook to download the public dataset from Zenodo.
+├── image_quality_analysis.py     # Script to calculate image sharpness scores.
+├── requirements.txt              # A list of required Python packages for the project.
+├── CITATION.cff                  # Citation file for the repository.
+├── taxonomic_info.csv            # Taxonomic data used by the download notebook for creating subsets.
 └── README.md                     # This file.
 ```
 
@@ -25,40 +30,37 @@ This project trains and evaluates several deep learning models (using Keras with
 
 This project uses a Conda environment. The required environment is assumed to be named `keras-jax` as specified in `sapro.sh`.
 
-```bash
-# Activate the environment
-conda activate keras-jax
-```
-
-Key dependencies include:
-*   Python
-*   Keras 3 (configured with JAX backend)
-*   JAX
-*   TensorFlow (for tf.data pipeline and image loading)
-*   keras-cv (for RandAugment and FocalLoss)
-*   scikit-learn (for metrics, splitting, PCA, StandardScaler, KMeans)
-*   pandas
-*   numpy
-*   PyYAML
-*   Matplotlib
-*   Seaborn
-*   Pillow (PIL)
-*   imblearn (if using SMOTE was intended, otherwise can be removed from env)
+1.  **Create and activate the environment:**
+    ```bash
+    # If you have an environment.yml file:
+    # conda env create -f environment.yml
+    conda activate keras-jax
+    ```
+2.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
 ### 2. Data Preparation
 
-*   **Training Data:** The training script (`sapro_classification.py` via `sapro.sh`) expects image data organized in class subdirectories within the path specified by `data.train_dir` in `config.yaml`. Example:
+To reproduce the results of this study, you must first download the publicly available image dataset and generate the taxonomic subsets.
+
+1.  **Run the Download Notebook:** Open and run the `download_dataset.ipynb` notebook. This notebook contains all the necessary steps to:
+    a.  Guide you to download the metadata from our Zenodo repository.
+    b.  Use the included `taxonomic_info.csv` file to assign taxonomic data to each image.
+    c.  Download all the publicly available images into a base directory (`downloaded_dataset/`).
+    d.  Automatically create all taxonomic subsets (e.g., `subsets/E_salmo_geq_10_in_both/`) using symlinks to save disk space.
+
+2.  **Configure Paths:** Once the data is downloaded, update your `config.yaml` to point to the correct directory for the analysis you wish to run. For example:
+    ```yaml
+    data:
+      train_dir: 'subsets/E_salmo_geq_10_in_both/' # Path to a specific subset for training
+      metadata_path: 'path/to/your/metadata.csv' # Metadata for grouping/stratification
     ```
-    /path/to/train_data/
-    ├── healthy/
-    │   ├── img1.jpg
-    │   └── img2.png
-    └── sapro/
-        ├── img3.jpeg
-        └── img4.jpg
-    ```
-*   **Metadata:** A CSV file containing metadata (including user/group IDs and stratification columns) is required, specified by `data.metadata_path` in `config.yaml`. It needs a column matching image filenames (e.g., `data_row.external_id`).
-*   **Analysis Data:** The analysis script (`analyse_misclassifications.py`) expects a similar structure in the directory provided via its `-d` argument, corresponding to the classes defined (e.g., `healthy/` and `sapro/`).
+
+#### Note on Extending the Dataset
+
+The data for this project was collated by searching public APIs (Flickr, iNaturalist, GBIF) for relevant keywords and taxonomic names. The resulting image metadata was then manually labeled for the presence of visible signs of *Saprolegnia spp.* infection using Labelbox. If you wish to extend this work with more recent images, you would follow a similar process of programmatic searching, data collation, and manual labeling.
 
 ## Configuration (`config.yaml`)
 
@@ -94,29 +96,35 @@ The primary way to run the training is using the SLURM batch script on a compati
     *   Confusion matrix plots and classification reports for each fold in subdirectories (`fold_1/`, `fold_2/`, etc.).
     *   The best model checkpoint (`.keras` file) for each fold's fine-tuning phase.
 
-## Analyzing Misclassifications
+## Additional Analyses
 
-After training, you can analyze the performance of a specific saved model using `analyse_misclassifications.py`.
+### Analyzing Misclassifications
+
+After training, you can analyze the performance of a specific saved model using `analyse_misclassifications.py`. This script can also integrate image sharpness data to explore its impact on model performance.
 
 1.  **Activate the environment:** `conda activate keras-jax`
-2.  **Run the script:**
+2.  **(Optional) Generate Sharpness Scores:** First, run the `image_quality_analysis.py` script on your image directory to generate a CSV of sharpness scores.
+    ```bash
+    python image_quality_analysis.py /path/to/your/image_folder --output_csv sharpness_scores.csv
+    ```
+3.  **Run the analysis script:**
 
     ```bash
     python analyse_misclassifications.py \
-        -m /path/to/your/best_model_fold_X_unfrozen.keras \
+        -m /path/to/your/best_model.keras \
         -d /path/to/your/analysis_data_directory/ \
         -o analysis_results.csv \
-        -k 4 \
-        --num_examples 10
+        -s sharpness_scores.csv # Optional: include sharpness data
     ```
 
     **Arguments:**
     *   `-m`, `--model_path` ( **Required**): Path to the saved Keras model file you want to analyze.
     *   `-d`, `--data_dir` ( **Required**): Path to the directory containing 'healthy' and 'sapro' subdirectories for analysis.
-    *   `-o`, `--output_csv` (Optional): Path to save the detailed CSV results (default: `misclassification_analysis.csv`).
-    *   `-k`, `--n_clusters` (Optional): Number of clusters for KMeans analysis (default: 3).
-    *   `--num_examples` (Optional): Number of example misclassified images to plot (default: 5).
+    *   `-o`, `--output_csv` (Optional): Path to save the detailed CSV results.
+    *   `-k`, `--n_clusters` (Optional): Number of clusters for KMeans analysis.
+    *   `--num_examples` (Optional): Number of example misclassified images to plot.
+    *   `-s`, `--sharpness_csv` (Optional): Path to the CSV file with image sharpness scores.
 
-3.  **Output:**
-    *   Plots (displayed interactively): Probability distributions, PCA cluster visualization, example misclassified images per category, example images per cluster.
-    *   A CSV file (specified by `-o`) containing detailed prediction results for every image analyzed. 
+4.  **Output:**
+    *   Plots (displayed interactively): Probability distributions, sharpness distributions, PCA cluster visualization, example misclassified images.
+    *   A CSV file (specified by `-o`) containing detailed prediction results. 
