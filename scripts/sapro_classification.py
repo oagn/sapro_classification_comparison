@@ -7,10 +7,10 @@ import numpy as np
 import jax
 
 # Local imports
-from data_loader import prepare_cross_validation_data
-from models import create_model
-from train import train_fold
-from evaluate import evaluate_model
+from .data_loader import prepare_cross_validation_data
+from .models import create_model
+from .train import train_fold
+from .evaluate import evaluate_model
 
 def train_with_cross_validation(config, model_name):
     """
