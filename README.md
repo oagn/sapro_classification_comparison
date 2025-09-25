@@ -8,20 +8,24 @@ This project trains and evaluates several deep learning models (using Keras with
 
 ```
 .
-├── analyse_misclassifications.py # Script to analyze model errors, plot results, and perform clustering.
-├── config.yaml                   # Configuration file for training parameters, paths, and model settings.
-├── data_loader.py                # Handles data loading, preprocessing, augmentation, and cross-validation splitting.
-├── evaluate.py                   # Calculates and saves evaluation metrics (accuracy, F1, confusion matrix, etc.).
-├── models.py                     # Defines model architectures (base models + classification head).
-├── sapro.sh                      # SLURM batch script to run the training pipeline on an HPC cluster.
-├── sapro_classification.py       # Main script for running the cross-validation training and evaluation pipeline.
-├── train.py                      # Contains functions for training models (frozen and unfrozen phases).
-├── download_dataset.ipynb        # Jupyter Notebook to download the public dataset from Zenodo.
-├── image_quality_analysis.py     # Script to calculate image sharpness scores.
-├── requirements.txt              # A list of required Python packages for the project.
-├── CITATION.cff                  # Citation file for the repository.
-├── taxonomic_info.csv            # Taxonomic data used by the download notebook for creating subsets.
-└── README.md                     # This file.
+├── notebooks/
+│   └── download_dataset.ipynb
+├── scripts/
+│   ├── analyse_misclassifications.py
+│   └── image_quality_analysis.py
+├── sapro_classification/
+│   ├── __init__.py
+│   ├── data_loader.py
+│   ├── evaluate.py
+│   ├── models.py
+│   ├── sapro_classification.py # Main training script.
+│   └── train.py
+├── hpc/                        # Scripts for High-Performance Computing.
+│   └── sapro.sh
+├── config.yaml                 # Configuration file for training parameters.
+├── requirements.txt            # A list of required Python packages for the project.
+├── CITATION.cff                # Citation file for the repository.
+└── README.md                   # This file.
 ```
 
 ## Setup
@@ -84,14 +88,33 @@ This file controls the entire training process. Key sections to configure:
 
 ## Running the Training Pipeline
 
-The primary way to run the training is using the SLURM batch script on a compatible HPC environment.
+There are two primary ways to run the training pipeline: locally on your own machine (recommended for testing with a small subset of data) or on an HPC cluster using the provided SLURM script (for full-scale training).
 
-1.  **Modify `sapro.sh` (if necessary):** Adjust SBATCH directives (time, memory, GPU count, account), the Conda environment name (`keras-jax`), or the `input_dir` if your code resides elsewhere relative to `$HOME`.
+### Running Locally (without HPC)
+
+You can run the main training script directly from your terminal. This is useful for debugging, testing on a single model, or running a small number of epochs.
+
+1.  **Activate the environment:**
+    ```bash
+    conda activate keras-jax
+    ```
+2.  **Configure `config.yaml`:** Ensure the `output_dir`, `train_dir`, and `metadata_path` are set correctly for your local machine. You might want to reduce the `initial_epochs` and `fine_tuning_epochs` for a quick test run.
+3.  **Run the script:**
+    ```bash
+    python -m sapro_classification.sapro_classification
+    ```
+    The script will iterate through all models defined in the `config.yaml` and save the results to the specified `output_dir`.
+
+### Running on an HPC Cluster (using SLURM)
+
+The primary way to run the full-scale training is using the SLURM batch script.
+
+1.  **Modify `hpc/sapro.sh` (if necessary):** Adjust SBATCH directives (time, memory, GPU count, account), the Conda environment name (`keras-jax`), or the `input_dir` if your code resides elsewhere relative to `$HOME`.
 2.  **Submit the job:**
     ```bash
-    sbatch sapro.sh
+    sbatch hpc/sapro.sh
     ```
-3.  **Output:** The script will create a working directory in `/scratch/$USER/`, copy the necessary files, run the `sapro_classification.py` script, and save all outputs to the `output_dir` specified in `config.yaml`. This includes:
+3.  **Output:** The script will create a working directory in `/scratch/$USER/`, copy the necessary files, run the training script, and save all outputs to the `output_dir` specified in `config.yaml`. This includes:
     *   A summary text file (`cv_results_summary_*.txt`).
     *   Confusion matrix plots and classification reports for each fold in subdirectories (`fold_1/`, `fold_2/`, etc.).
     *   The best model checkpoint (`.keras` file) for each fold's fine-tuning phase.
@@ -100,17 +123,17 @@ The primary way to run the training is using the SLURM batch script on a compati
 
 ### Analyzing Misclassifications
 
-After training, you can analyze the performance of a specific saved model using `analyse_misclassifications.py`. This script can also integrate image sharpness data to explore its impact on model performance.
+After training, you can analyze the performance of a specific saved model using the analysis script. This script can also integrate image sharpness data to explore its impact on model performance.
 
 1.  **Activate the environment:** `conda activate keras-jax`
 2.  **(Optional) Generate Sharpness Scores:** First, run the `image_quality_analysis.py` script on your image directory to generate a CSV of sharpness scores.
     ```bash
-    python image_quality_analysis.py /path/to/your/image_folder --output_csv sharpness_scores.csv
+    python scripts/image_quality_analysis.py /path/to/your/image_folder --output_csv sharpness_scores.csv
     ```
 3.  **Run the analysis script:**
 
     ```bash
-    python analyse_misclassifications.py \
+    python scripts/analyse_misclassifications.py \
         -m /path/to/your/best_model.keras \
         -d /path/to/your/analysis_data_directory/ \
         -o analysis_results.csv \
