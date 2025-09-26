@@ -6,12 +6,11 @@ keras-cv
 keras
 tensorflow
 scikit-learn
-jax
-jax-plugins
+jax[metal]
 matplotlib
 seaborn
 Pillow
 PyYAML
-scikit-image
+scikit-image==0.20.0
 image-quality
 pywavelets
