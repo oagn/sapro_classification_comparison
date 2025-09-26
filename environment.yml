@@ -1,0 +1,24 @@
+name: sapro-env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  # Core packages with complex C dependencies, handled by Conda
+  - numpy<2.2.0
+  - pandas
+  - scikit-learn
+  - scikit-image=0.20.0
+  - opencv
+  - matplotlib
+  - seaborn
+  - pillow
+  - pyyaml
+  - pywavelets
+  - tqdm
+  # Packages to be installed by pip after Conda runs
+  - pip:
+    - keras
+    - keras-cv
+    - tensorflow
+    - jax[metal]
