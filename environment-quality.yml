@@ -1,0 +1,21 @@
+name: sapro-quality
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  # Core packages for quality analysis, handled by Conda
+  - numpy
+  - pandas
+  - scikit-image
+  - opencv
+  - matplotlib
+  - seaborn
+  - pillow
+  - pyyaml
+  - pywavelets
+  - tqdm
+  # Packages to be installed by pip
+  - pip:
+    - image-quality

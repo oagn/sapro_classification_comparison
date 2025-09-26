@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   - python=3.10
+  - pip
   # Core packages with complex C dependencies, handled by Conda
   - numpy<2.2.0
   - pandas

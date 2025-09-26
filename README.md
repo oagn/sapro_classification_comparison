@@ -30,20 +30,22 @@ This project trains and evaluates several deep learning models (using Keras with
 
 ## Setup
 
-### 1. Environment
+### 1. Environments
 
-This project uses a Conda environment. The required environment is assumed to be named `keras-jax` as specified in `sapro.sh`.
+This project requires two separate Conda environments to manage conflicting dependencies between the machine learning framework (TensorFlow) and the image quality analysis libraries.
 
-1.  **Create and activate the environment:**
-    ```bash
-    # If you have an environment.yml file:
-    # conda env create -f environment.yml
-    conda activate keras-jax
-    ```
-2.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+-   `sapro-env`: Used for running the ML model predictions. Based on Python 3.10.
+-   `sapro-quality`: Used for running the image quality analysis. Based on Python 3.12.
+
+**Create the environments:**
+Run the following commands from your project's root directory to create both environments:
+```bash
+# Create the environment for machine learning tasks
+conda env create -f environment.yml
+
+# Create the environment for image quality analysis
+conda env create -f environment-quality.yml
+```
 
 ### 2. Data Preparation
 
@@ -123,16 +125,18 @@ The primary way to run the full-scale training is using the SLURM batch script.
 
 ### Analyzing Misclassifications
 
-After training, you can analyze the performance of a specific saved model using the analysis script. This script can also integrate image sharpness data to explore its impact on model performance.
+After training, you can analyze the performance of a specific saved model using the analysis script. This script **must be run in the `sapro-env` environment**.
 
-1.  **Activate the environment:** `conda activate keras-jax`
+1.  **Activate the ML environment:** `conda activate sapro-env`
 2.  **(Optional) Generate Sharpness Scores:** First, run the `image_quality_analysis.py` script on your image directory to generate a CSV of sharpness scores.
     ```bash
+    conda activate sapro-env
     python scripts/image_quality_analysis.py /path/to/your/image_folder --output_csv sharpness_scores.csv
     ```
 3.  **Run the analysis script:**
 
     ```bash
+    conda activate sapro-env
     python scripts/analyse_misclassifications.py \
         -m /path/to/your/best_model.keras \
         -d /path/to/your/analysis_data_directory/ \
@@ -158,23 +162,26 @@ To quantitatively analyze how image quality metrics correlate with model perform
 
 The process involves three main steps:
 
-1.  **Generate Prediction Results:** First, run the `analyse_misclassifications.py` script as described above. This will produce a detailed CSV file of the model's predictions on your dataset.
+1.  **Generate Prediction Results:** First, run the `analyse_misclassifications.py` script **using the `sapro-env` environment**. This will produce a detailed CSV file of the model's predictions on your dataset.
     ```bash
+    conda activate sapro-env
     python scripts/analyse_misclassifications.py \\
         -m /path/to/your/best_model.keras \\
         -d /path/to/your/analysis_data_directory/ \\
         -o prediction_results.csv
     ```
 
-2.  **Generate Image Quality Scores:** Next, run the `image_quality_analysis.py` script on the *same* data directory. This will produce a CSV containing sharpness, BRISQUE, and NIQE scores for every image.
+2.  **Generate Image Quality Scores:** Next, run the `image_quality_analysis.py` script on the *same* data directory **using the `sapro-quality` environment**. This will produce a CSV containing sharpness, BRISQUE, NIQE, noise, and resolution for every image.
     ```bash
+    conda activate sapro-quality
     python scripts/image_quality_analysis.py \\
         /path/to/your/analysis_data_directory/ \\
         --output_csv quality_scores.csv
     ```
 
-3.  **Run the Combined Analysis:** Finally, use the `analyse_classification_quality.py` script, providing the two CSVs generated above as input.
+3.  **Run the Combined Analysis:** Finally, use the `analyse_classification_quality.py` script to combine these results. This script is simple and can be run in **either environment**.
     ```bash
+    # Make sure one of the environments is active
     python scripts/analyse_classification_quality.py \\
         prediction_results.csv \\
         quality_scores.csv \\
