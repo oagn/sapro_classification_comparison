@@ -1,5 +1,5 @@
 opencv-python-headless
-numpy
+numpy<2.2.0
 pandas
 tqdm
 keras-cv
@@ -12,5 +12,4 @@ seaborn
 Pillow
 PyYAML
 scikit-image==0.20.0
-image-quality
 pywavelets

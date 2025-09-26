@@ -4,7 +4,6 @@ from pathlib import Path
 import pandas as pd
 import argparse
 from tqdm import tqdm
-from imquality import brisque
 from skimage import io
 from skimage.metrics import mean_squared_error
 from skimage.restoration import estimate_sigma
@@ -21,11 +20,6 @@ def calculate_sharpness(image_gray):
     """Calculates sharpness using the variance of the Laplacian."""
     if image_gray is None: return 0.0
     return cv2.Laplacian(image_gray, cv2.CV_64F).var()
-
-def calculate_brisque(image_rgb):
-    """Calculates the BRISQUE score."""
-    if image_rgb is None: return np.nan
-    return brisque.score(image_rgb)
 
 def calculate_niqe(image_gray):
     """Calculates the NIQE score."""
@@ -50,7 +44,7 @@ def analyze_image_quality(data_dir, output_csv):
         print(f"No images found in directory: {data_dir}")
         return
 
-    print(f"Found {len(image_paths)} images to analyze for Sharpness, BRISQUE, NIQE, Resolution, and Noise.")
+    print(f"Found {len(image_paths)} images to analyze for Sharpness, NIQE, Resolution, and Noise.")
     results = []
 
     for path in tqdm(image_paths, desc="Analyzing Image Quality"):
@@ -67,14 +61,12 @@ def analyze_image_quality(data_dir, output_csv):
                  image_gray = (image_gray * 255).astype(np.uint8)
 
             sharpness = calculate_sharpness(image_gray)
-            brisque_score = calculate_brisque(image_rgb)
             niqe_score = calculate_niqe(image_gray)
             noise = calculate_noise(image_gray)
             
             results.append({
                 'filename': path.name,
                 'sharpness': sharpness,
-                'brisque': brisque_score,
                 'niqe': niqe_score,
                 'width': width,
                 'height': height,
@@ -85,7 +77,6 @@ def analyze_image_quality(data_dir, output_csv):
             results.append({
                 'filename': path.name,
                 'sharpness': np.nan,
-                'brisque': np.nan,
                 'niqe': np.nan,
                 'width': np.nan,
                 'height': np.nan,
@@ -99,7 +90,7 @@ def analyze_image_quality(data_dir, output_csv):
     print(df.describe())
 
 def main():
-    parser = argparse.ArgumentParser(description="Analyze image quality metrics (Sharpness, BRISQUE, NIQE).")
+    parser = argparse.ArgumentParser(description="Analyze image quality metrics (Sharpness, NIQE, Resolution, Noise).")
     parser.add_argument(
         "data_dir",
         type=str,

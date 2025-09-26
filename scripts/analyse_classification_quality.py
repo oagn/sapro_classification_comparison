@@ -49,7 +49,7 @@ def plot_quality_distributions(df, output_dir):
     """
     print(f"Generating quality distribution plots in: {output_dir}")
     
-    for score in ['sharpness', 'brisque', 'niqe']:
+    for score in ['sharpness', 'niqe', 'noise', 'width', 'height']:
         if score not in df.columns or df[score].isna().all():
             print(f"Skipping plot for '{score}': column not found or all values are NaN.")
             continue
@@ -81,7 +81,7 @@ def generate_summary_tables(df, output_dir):
     """
     print(f"Generating summary statistic tables in: {output_dir}")
 
-    for score in ['sharpness', 'brisque', 'niqe']:
+    for score in ['sharpness', 'niqe', 'noise', 'width', 'height']:
         if score in df.columns and not df[score].isna().all():
             # Summary by correctness
             stats_correctness = df.groupby('is_correct')[score].describe().round(2)
