@@ -18,4 +18,4 @@ dependencies:
   - tqdm
   # Packages to be installed by pip
   - pip:
-    - image-quality
+    - pybrisque

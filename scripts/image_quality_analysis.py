@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import argparse
 from tqdm import tqdm
-from imquality import brisque
+from brisque import BRISQUE
 from skimage import io
 from skimage.metrics import mean_squared_error
 from skimage.restoration import estimate_sigma
@@ -21,11 +21,6 @@ def calculate_sharpness(image_gray):
     """Calculates sharpness using the variance of the Laplacian."""
     if image_gray is None: return 0.0
     return cv2.Laplacian(image_gray, cv2.CV_64F).var()
-
-def calculate_brisque(image_rgb):
-    """Calculates the BRISQUE score."""
-    if image_rgb is None: return np.nan
-    return brisque.score(image_rgb)
 
 def calculate_niqe(image_gray):
     """Calculates the NIQE score."""
@@ -51,6 +46,10 @@ def analyze_image_quality(data_dir, output_csv):
         return
 
     print(f"Found {len(image_paths)} images to analyze for Sharpness, BRISQUE, NIQE, Resolution, and Noise.")
+    
+    # Instantiate the BRISQUE model once
+    brisque_scorer = BRISQUE(url=False)
+    
     results = []
 
     for path in tqdm(image_paths, desc="Analyzing Image Quality"):
@@ -67,7 +66,7 @@ def analyze_image_quality(data_dir, output_csv):
                  image_gray = (image_gray * 255).astype(np.uint8)
 
             sharpness = calculate_sharpness(image_gray)
-            brisque_score = calculate_brisque(image_rgb)
+            brisque_score = brisque_scorer.score(image_rgb)
             niqe_score = calculate_niqe(image_gray)
             noise = calculate_noise(image_gray)
             
