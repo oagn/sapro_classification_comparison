@@ -1,4 +1,4 @@
-opencv-python
+opencv-python-headless
 numpy
 pandas
 tqdm
@@ -12,3 +12,6 @@ matplotlib
 seaborn
 Pillow
 PyYAML
+scikit-image
+image-quality
+pywavelets

@@ -150,4 +150,37 @@ After training, you can analyze the performance of a specific saved model using 
 
 4.  **Output:**
     *   Plots (displayed interactively): Probability distributions, sharpness distributions, PCA cluster visualization, example misclassified images.
-    *   A CSV file (specified by `-o`) containing detailed prediction results. 
+    *   A CSV file (specified by `-o`) containing detailed prediction results.
+
+### Analyzing Quality vs. Performance
+
+To quantitatively analyze how image quality metrics correlate with model performance, a separate script is provided. This creates a reproducible workflow for generating the plots and tables used in the discussion section of the paper.
+
+The process involves three main steps:
+
+1.  **Generate Prediction Results:** First, run the `analyse_misclassifications.py` script as described above. This will produce a detailed CSV file of the model's predictions on your dataset.
+    ```bash
+    python scripts/analyse_misclassifications.py \\
+        -m /path/to/your/best_model.keras \\
+        -d /path/to/your/analysis_data_directory/ \\
+        -o prediction_results.csv
+    ```
+
+2.  **Generate Image Quality Scores:** Next, run the `image_quality_analysis.py` script on the *same* data directory. This will produce a CSV containing sharpness, BRISQUE, and NIQE scores for every image.
+    ```bash
+    python scripts/image_quality_analysis.py \\
+        /path/to/your/analysis_data_directory/ \\
+        --output_csv quality_scores.csv
+    ```
+
+3.  **Run the Combined Analysis:** Finally, use the `analyse_classification_quality.py` script, providing the two CSVs generated above as input.
+    ```bash
+    python scripts/analyse_classification_quality.py \\
+        prediction_results.csv \\
+        quality_scores.csv \\
+        --output_dir quality_analysis_results
+    ```
+
+    **Output:** This will create a new directory (e.g., `quality_analysis_results/`) containing:
+    *   Distribution plots (`.png`) for each quality metric, comparing correct vs. incorrect predictions.
+    *   Summary tables (`.csv`) detailing the statistics for each quality metric, grouped by correctness and true label. 
