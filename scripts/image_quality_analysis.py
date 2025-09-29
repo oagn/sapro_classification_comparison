@@ -257,9 +257,9 @@ def analyze_image_quality(data_dir, output_csv, brisque_model_path, brisque_rang
             results.append({
                 'filename': path.name,
                 'species': species,
-                'blur_score': blur_score,
-                'brisque_score': brisque_score,
-                'niqe_score': niqe_score,
+                'sharpness': blur_score, # Renamed from blur_score
+                'brisque': brisque_score, # Renamed from brisque_score
+                'niqe': niqe_score, # Renamed from niqe_score
                 'width': width,
                 'height': height,
             })
@@ -268,9 +268,9 @@ def analyze_image_quality(data_dir, output_csv, brisque_model_path, brisque_rang
             results.append({
                 'filename': path.name,
                 'species': path.parent.name,
-                'blur_score': np.nan,
-                'brisque_score': np.nan,
-                'niqe_score': np.nan,
+                'sharpness': np.nan,
+                'brisque': np.nan,
+                'niqe': np.nan,
                 'width': np.nan,
                 'height': np.nan,
             })
@@ -279,10 +279,10 @@ def analyze_image_quality(data_dir, output_csv, brisque_model_path, brisque_rang
     df.to_csv(output_csv, index=False)
     print(f"\nImage quality analysis complete. Results saved to {output_csv}")
     print("\nSummary statistics:")
-    print(df[['blur_score', 'brisque_score', 'niqe_score']].describe())
+    print(df[['sharpness', 'brisque', 'niqe']].describe())
 
 def main():
-    parser = argparse.ArgumentParser(description="Analyze image quality metrics (Blur, BRISQUE, NIQE).")
+    parser = argparse.ArgumentParser(description="Analyze image quality metrics (Sharpness, BRISQUE, NIQE).")
     parser.add_argument(
         "data_dir",
         type=str,
