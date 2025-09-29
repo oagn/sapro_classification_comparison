@@ -6,6 +6,7 @@ dependencies:
   - python=3.12
   - pip
   # Core packages for quality analysis, handled by Conda
+  - libsvm
   - numpy
   - pandas
   - scikit-image
