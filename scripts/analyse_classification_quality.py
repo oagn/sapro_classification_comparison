@@ -84,29 +84,35 @@ def plot_quality_boxplots(df, output_dir):
 
 def generate_summary_tables(df, output_dir):
     """
-    Generates and saves summary statistic tables for each quality metric.
+    Generates and saves a detailed summary statistic table for each quality metric,
+    grouped by both true label and classification correctness.
     """
-    print(f"Generating summary statistic tables in: {output_dir}")
+    print(f"Generating detailed summary statistic tables in: {output_dir}")
+
+    # Note: The 'True Label' and 'Classification' columns are already created 
+    # in the plot_quality_boxplots function. If that function is changed or
+    # this one is called independently, these mappings would need to be recreated here.
 
     for score in ['sharpness', 'brisque', 'niqe', 'width', 'height']:
         if score in df.columns and not df[score].isna().all():
-            # Summary by correctness
-            stats_correctness = df.groupby('is_correct')[score].describe().round(2)
-            # Map integer index (0 for False, 1 for True) to readable labels
-            stats_correctness.index = stats_correctness.index.map({1: 'Correct', 0: 'Incorrect'})
-            print(f"\n--- {score.capitalize()} Statistics (by Correctness) ---")
-            print(stats_correctness.to_string())
-            save_path = Path(output_dir) / f'{score}_summary_by_correctness.csv'
-            stats_correctness.to_csv(save_path)
-            print(f"  - Saved {save_path.name}")
+            # Create a combined summary table grouped by both class and correctness
+            stats_combined = df.groupby(['True Label', 'Classification'])[score].describe().round(2)
             
-            # Summary by true label
-            stats_label = df.groupby('true_label')[score].describe().round(2)
-            stats_label.index = stats_label.index.map({0: 'Healthy', 1: 'Sapro'})
-            print(f"\n--- {score.capitalize()} Statistics (by True Label) ---")
-            print(stats_label.to_string())
-            save_path = Path(output_dir) / f'{score}_summary_by_label.csv'
-            stats_label.to_csv(save_path)
+            # Ensure a consistent order for readability
+            if not stats_combined.empty:
+                stats_combined = stats_combined.reindex(
+                    pd.MultiIndex.from_product(
+                        [['Healthy', 'Sapro'], ['Correct', 'Incorrect']], 
+                        names=['True Label', 'Classification']
+                    )
+                )
+
+            print(f"\n--- {score.capitalize()} Statistics (by Class and Correctness) ---")
+            print(stats_combined.to_string())
+            
+            # Update filename to reflect the new, more detailed grouping
+            save_path = Path(output_dir) / f'{score}_summary_by_class_and_correctness.csv'
+            stats_combined.to_csv(save_path)
             print(f"  - Saved {save_path.name}")
 
 
