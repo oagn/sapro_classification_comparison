@@ -44,33 +44,39 @@ def merge_data(classification_path, quality_path):
 
 def plot_quality_boxplots(df, output_dir):
     """
-    Generates and saves box plots for each quality metric,
-    comparing correct vs. incorrect classifications.
+    Generates and saves box plots for each quality metric, comparing 
+    correct vs. incorrect classifications within each true class.
     """
     print(f"Generating quality box plots in: {output_dir}")
     
-    # Map is_correct to a more readable string for plotting
+    # Map numeric labels to readable strings for plotting
     df['Classification'] = df['is_correct'].map({1: 'Correct', 0: 'Incorrect'})
+    df['True Label'] = df['true_label'].map({0: 'Healthy', 1: 'Sapro'})
     
     for score in ['sharpness', 'brisque', 'niqe', 'width', 'height']:
         if score not in df.columns or df[score].isna().all():
             print(f"Skipping plot for '{score}': column not found or all values are NaN.")
             continue
 
-        plt.figure(figsize=(10, 7))
+        plt.figure(figsize=(12, 8))
         
         # Custom blue palette: light for 'Correct', darker for 'Incorrect'
-        custom_palette = ["#a1c9f4", "#225ea8"]
-        sns.boxplot(x='Classification', y=score, data=df, order=['Correct', 'Incorrect'], palette=custom_palette)
+        custom_palette = {"Correct": "#a1c9f4", "Incorrect": "#225ea8"}
+        
+        # Use hue to create faceted plots for each class
+        sns.boxplot(x='True Label', y=score, hue='Classification', data=df, 
+                    order=['Healthy', 'Sapro'], hue_order=['Correct', 'Incorrect'], 
+                    palette=custom_palette)
         
         # Increase font size for labels and ticks
-        plt.xlabel('Classification Result', fontsize=14)
+        plt.xlabel('True Label', fontsize=14)
         plt.ylabel(f'{score.capitalize()} Score', fontsize=14)
         plt.tick_params(axis='both', which='major', labelsize=12)
 
         plt.grid(True, linestyle='--', alpha=0.6)
         
-        save_path = Path(output_dir) / f'{score}_boxplot_by_correctness.png'
+        # Update filename to reflect the more detailed plot
+        save_path = Path(output_dir) / f'{score}_boxplot_by_class_and_correctness.png'
         plt.savefig(save_path)
         plt.close()
         print(f"  - Saved {save_path.name}")
