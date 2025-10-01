@@ -59,10 +59,15 @@ def plot_quality_boxplots(df, output_dir):
 
         plt.figure(figsize=(10, 7))
         
-        sns.boxplot(x='Classification', y=score, data=df, order=['Correct', 'Incorrect'], palette="colorblind")
+        # Custom blue palette: light for 'Correct', darker for 'Incorrect'
+        custom_palette = ["#a1c9f4", "#225ea8"]
+        sns.boxplot(x='Classification', y=score, data=df, order=['Correct', 'Incorrect'], palette=custom_palette)
         
-        plt.xlabel('Classification Result')
-        plt.ylabel(f'{score.capitalize()} Score')
+        # Increase font size for labels and ticks
+        plt.xlabel('Classification Result', fontsize=14)
+        plt.ylabel(f'{score.capitalize()} Score', fontsize=14)
+        plt.tick_params(axis='both', which='major', labelsize=12)
+
         plt.grid(True, linestyle='--', alpha=0.6)
         
         save_path = Path(output_dir) / f'{score}_boxplot_by_correctness.png'
