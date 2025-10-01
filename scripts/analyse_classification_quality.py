@@ -44,33 +44,30 @@ def merge_data(classification_path, quality_path):
 
 def plot_quality_distributions(df, output_dir):
     """
-    Generates and saves distribution plots for each quality metric,
+    Generates and saves box plots for each quality metric,
     comparing correct vs. incorrect classifications.
     """
-    print(f"Generating quality distribution plots in: {output_dir}")
+    print(f"Generating quality box plots in: {output_dir}")
+    
+    # Map is_correct to a more readable string for plotting
+    df['Classification'] = df['is_correct'].map({1: 'Correct', 0: 'Incorrect'})
     
     for score in ['sharpness', 'brisque', 'niqe', 'width', 'height']:
         if score not in df.columns or df[score].isna().all():
             print(f"Skipping plot for '{score}': column not found or all values are NaN.")
             continue
 
-        plt.figure(figsize=(10, 6))
+        plt.figure(figsize=(10, 7))
         
-        correct_scores = df[df['is_correct'] == 1][score].dropna()
-        incorrect_scores = df[df['is_correct'] == 0][score].dropna()
-
-        if not correct_scores.empty:
-            sns.kdeplot(data=correct_scores, label='Correct', color='green', fill=True, alpha=0.2)
-        if not incorrect_scores.empty:
-            sns.kdeplot(data=incorrect_scores, label='Incorrect', color='red', fill=True, alpha=0.2)
+        sns.boxplot(x='Classification', y=score, data=df, order=['Correct', 'Incorrect'], palette=['lightgreen', 'salmon'])
         
         plt.title(f'Distribution of {score.capitalize()} for Correct vs. Incorrect Predictions')
-        plt.xlabel(f'{score.capitalize()} Score')
-        plt.ylabel('Density')
-        plt.legend()
+        plt.xlabel('Classification Result')
+        plt.ylabel(f'{score.capitalize()} Score')
         plt.grid(True, linestyle='--', alpha=0.6)
         
-        save_path = Path(output_dir) / f'{score}_distribution_by_correctness.png'
+        # We've renamed the function, so let's update the saved file name to reflect the new plot type
+        save_path = Path(output_dir) / f'{score}_boxplot_by_correctness.png'
         plt.savefig(save_path)
         plt.close()
         print(f"  - Saved {save_path.name}")
