@@ -56,8 +56,8 @@ def plot_quality_distributions(df, output_dir):
 
         plt.figure(figsize=(10, 6))
         
-        correct_scores = df[df['is_correct'] == True][score].dropna()
-        incorrect_scores = df[df['is_correct'] == False][score].dropna()
+        correct_scores = df[df['is_correct'] == 1][score].dropna()
+        incorrect_scores = df[df['is_correct'] == 0][score].dropna()
 
         if not correct_scores.empty:
             sns.kdeplot(data=correct_scores, label='Correct', color='green', fill=True, alpha=0.2)
@@ -85,7 +85,8 @@ def generate_summary_tables(df, output_dir):
         if score in df.columns and not df[score].isna().all():
             # Summary by correctness
             stats_correctness = df.groupby('is_correct')[score].describe().round(2)
-            stats_correctness.index = stats_correctness.index.map({True: 'Correct', False: 'Incorrect'})
+            # Map integer index (0 for False, 1 for True) to readable labels
+            stats_correctness.index = stats_correctness.index.map({1: 'Correct', 0: 'Incorrect'})
             print(f"\n--- {score.capitalize()} Statistics (by Correctness) ---")
             print(stats_correctness.to_string())
             save_path = Path(output_dir) / f'{score}_summary_by_correctness.csv'
