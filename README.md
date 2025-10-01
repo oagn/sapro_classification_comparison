@@ -51,7 +51,9 @@ To reproduce the results of this study, you must first download the publicly ava
 
 ## Running the Training Pipeline
 
-The training pipeline is controlled by the `config.yaml` file. Ensure all paths and parameters are set correctly before running.
+There are two primary ways to run the training pipeline: locally for testing, or on an HPC cluster for full-scale training.
+
+### Running Locally
 
 1.  **Activate the environment:**
     ```bash
@@ -59,9 +61,16 @@ The training pipeline is controlled by the `config.yaml` file. Ensure all paths 
     ```
 2.  **Run the training script:**
     ```bash
-    python scripts/train.py # Or the main training script as required
+    python scripts/sapro_classification.py
     ```
-    *Note: The exact training script may vary. Please refer to the script intended for training.*
+
+### Running on an HPC Cluster (using SLURM)
+
+1.  **Modify `hpc/sapro.sh` (if necessary):** Adjust SBATCH directives (time, memory, GPU count), the Conda environment name (`sapro-env`), or other paths as needed.
+2.  **Submit the job:**
+    ```bash
+    sbatch hpc/sapro.sh
+    ```
 
 ## Analyzing Model Performance and Image Quality
 
@@ -102,5 +111,5 @@ The process involves three main steps, all run in the **`sapro-env`** environmen
     ```
 
     **Output:** This will create a new directory (e.g., `quality_analysis_results/`) containing:
-    *   Distribution plots (`.png`) for each quality metric, comparing correct vs. incorrect predictions.
+    *   Box plots (`.png`) for each quality metric, comparing correct vs. incorrect predictions.
     *   Summary tables (`.csv`) detailing the statistics for each quality metric, grouped by correctness and true label. 

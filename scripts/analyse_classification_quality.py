@@ -42,7 +42,7 @@ def merge_data(classification_path, quality_path):
         
     return merged_df
 
-def plot_quality_distributions(df, output_dir):
+def plot_quality_boxplots(df, output_dir):
     """
     Generates and saves box plots for each quality metric,
     comparing correct vs. incorrect classifications.
@@ -59,18 +59,17 @@ def plot_quality_distributions(df, output_dir):
 
         plt.figure(figsize=(10, 7))
         
-        sns.boxplot(x='Classification', y=score, data=df, order=['Correct', 'Incorrect'], palette=['lightgreen', 'salmon'])
+        sns.boxplot(x='Classification', y=score, data=df, order=['Correct', 'Incorrect'], palette="colorblind")
         
-        plt.title(f'Distribution of {score.capitalize()} for Correct vs. Incorrect Predictions')
         plt.xlabel('Classification Result')
         plt.ylabel(f'{score.capitalize()} Score')
         plt.grid(True, linestyle='--', alpha=0.6)
         
-        # We've renamed the function, so let's update the saved file name to reflect the new plot type
         save_path = Path(output_dir) / f'{score}_boxplot_by_correctness.png'
         plt.savefig(save_path)
         plt.close()
         print(f"  - Saved {save_path.name}")
+
 
 def generate_summary_tables(df, output_dir):
     """
@@ -92,7 +91,7 @@ def generate_summary_tables(df, output_dir):
             
             # Summary by true label
             stats_label = df.groupby('true_label')[score].describe().round(2)
-            stats_label.index = stats_label.index.map({0: 'Healthy', 1: 'Sapro'}) # Assuming 0=healthy, 1=sapro
+            stats_label.index = stats_label.index.map({0: 'Healthy', 1: 'Sapro'})
             print(f"\n--- {score.capitalize()} Statistics (by True Label) ---")
             print(stats_label.to_string())
             save_path = Path(output_dir) / f'{score}_summary_by_label.csv'
@@ -130,7 +129,7 @@ def main():
     
     if merged_df is not None and not merged_df.empty:
         # Generate plots
-        plot_quality_distributions(merged_df, args.output_dir)
+        plot_quality_boxplots(merged_df, args.output_dir)
         
         # Generate tables
         generate_summary_tables(merged_df, args.output_dir)
