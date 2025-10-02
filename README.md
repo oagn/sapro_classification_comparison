@@ -1,4 +1,4 @@
-# Saprolegnia Classification Comparison
+# computer-vision-fish-disease
 
 ## Overview
 
