@@ -5,6 +5,7 @@ import numpy as np
 import argparse
 import os
 from pathlib import Path
+from scipy.stats import mannwhitneyu
 
 def merge_data(classification_path, quality_path):
     """
@@ -89,10 +90,6 @@ def generate_summary_tables(df, output_dir):
     """
     print(f"Generating detailed summary statistic tables in: {output_dir}")
 
-    # Note: The 'True Label' and 'Classification' columns are already created 
-    # in the plot_quality_boxplots function. If that function is changed or
-    # this one is called independently, these mappings would need to be recreated here.
-
     for score in ['sharpness', 'brisque', 'niqe', 'width', 'height']:
         if score in df.columns and not df[score].isna().all():
             # Create a combined summary table grouped by both class and correctness
@@ -115,6 +112,109 @@ def generate_summary_tables(df, output_dir):
             stats_combined.to_csv(save_path)
             print(f"  - Saved {save_path.name}")
 
+
+def perform_stratified_mann_whitney_u_tests(df, output_dir):
+    """
+    Performs STRATIFIED Mann-Whitney U tests to compare quality scores between
+    correct and incorrect classifications for EACH true class separately.
+    """
+    print("\nPerforming STRATIFIED Mann-Whitney U tests (Correct vs Incorrect within each class)...")
+
+    # These columns should be created by plot_quality_boxplots, but we can ensure they exist
+    if 'Classification' not in df.columns:
+        df['Classification'] = df['is_correct'].map({1: 'Correct', 0: 'Incorrect'})
+    if 'True Label' not in df.columns:
+        df['True Label'] = df['true_label'].map({0: 'Healthy', 1: 'Sapro'})
+
+    results = []
+    quality_metrics = ['sharpness', 'brisque', 'niqe', 'width', 'height']
+
+    for score in quality_metrics:
+        if score not in df.columns or df[score].isna().all():
+            print(f"Skipping Mann-Whitney U test for '{score}': column not found or all values are NaN.")
+            continue
+
+        for label in ['Healthy', 'Sapro']:
+            class_df = df[df['True Label'] == label]
+            
+            correct_scores = class_df[class_df['Classification'] == 'Correct'][score].dropna()
+            incorrect_scores = class_df[class_df['Classification'] == 'Incorrect'][score].dropna()
+
+            if len(correct_scores) > 0 and len(incorrect_scores) > 0:
+                try:
+                    stat, p_value = mannwhitneyu(correct_scores, incorrect_scores, alternative='two-sided')
+                    results.append({
+                        'Metric': score,
+                        'True Label': label,
+                        'U-statistic': stat,
+                        'p-value': p_value
+                    })
+                except ValueError as e:
+                    print(f"Could not perform test for {score} in {label}: {e}")
+            else:
+                print(f"Skipping test for {score} in {label} due to insufficient data.")
+
+    if not results:
+        print("No stratified Mann-Whitney U tests could be performed.")
+        return
+
+    results_df = pd.DataFrame(results)
+    
+    print("\n--- Stratified Mann-Whitney U Test Results ---")
+    print(results_df.to_string())
+
+    save_path = Path(output_dir) / 'mann_whitney_u_test_results_stratified.csv'
+    results_df.to_csv(save_path, index=False)
+    print(f"  - Saved {save_path.name}")
+
+def perform_pooled_mann_whitney_u_tests(df, output_dir):
+    """
+    Performs POOLED Mann-Whitney U tests to compare quality scores between
+    ALL correct and ALL incorrect classifications, regardless of true class.
+    """
+    print("\nPerforming POOLED Mann-Whitney U tests (ALL Correct vs ALL Incorrect)...")
+
+    # Ensure 'Classification' column exists
+    if 'Classification' not in df.columns:
+        df['Classification'] = df['is_correct'].map({1: 'Correct', 0: 'Incorrect'})
+
+    results = []
+    quality_metrics = ['sharpness', 'brisque', 'niqe', 'width', 'height']
+
+    for score in quality_metrics:
+        if score not in df.columns or df[score].isna().all():
+            print(f"Skipping pooled test for '{score}': column not found or all values are NaN.")
+            continue
+
+        # Get scores for ALL correct and incorrect images
+        correct_scores = df[df['Classification'] == 'Correct'][score].dropna()
+        incorrect_scores = df[df['Classification'] == 'Incorrect'][score].dropna()
+
+        if len(correct_scores) > 0 and len(incorrect_scores) > 0:
+            try:
+                stat, p_value = mannwhitneyu(correct_scores, incorrect_scores, alternative='two-sided')
+                results.append({
+                    'Metric': score,
+                    'U-statistic': stat,
+                    'p-value': p_value
+                })
+            except ValueError as e:
+                print(f"Could not perform pooled test for {score}: {e}")
+        else:
+            print(f"Skipping pooled test for {score} due to insufficient data.")
+
+    if not results:
+        print("No pooled Mann-Whitney U tests could be performed.")
+        return
+
+    results_df = pd.DataFrame(results)
+    
+    print("\n--- Pooled Mann-Whitney U Test Results ---")
+    print(results_df.to_string())
+
+    save_path = Path(output_dir) / 'mann_whitney_u_test_results_pooled.csv'
+    results_df.to_csv(save_path, index=False)
+    print(f"  - Saved {save_path.name}")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -150,6 +250,10 @@ def main():
         
         # Generate tables
         generate_summary_tables(merged_df, args.output_dir)
+        
+        # Perform statistical tests (both types)
+        perform_stratified_mann_whitney_u_tests(merged_df, args.output_dir)
+        perform_pooled_mann_whitney_u_tests(merged_df, args.output_dir)
         
         print(f"\nAnalysis complete. All outputs saved in '{args.output_dir}'")
     else:
