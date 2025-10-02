@@ -1,0 +1,21 @@
+# Analysis output directory
+output/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS-specific files
+.DS_Store
+.Rhistory
+
+# IDE configuration
+.vscode/
+.idea/
+
+# Ignore generated CSV files in the root directory
+# (allow CSVs in other specific directories if needed)
+/*.csv

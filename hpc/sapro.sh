@@ -36,7 +36,7 @@ rm -rf ${WDPATH}
 mkdir -p ${WDPATH}
 cd ${WDPATH}
 
-cp ${input_dir}/*.py ${WDPATH}
+cp -r ${input_dir}/scripts ${WDPATH}/scripts
 cp ${input_dir}/config.yaml ${WDPATH}
 
 module purge
@@ -47,7 +47,7 @@ source activate keras-jax
 conda list
 
 start="$(date +%s)"
-time conda run -n keras-jax python ${test}.py 
+time conda run -n keras-jax python scripts/${test}.py 
 stop="$(date +%s)"
 finish=$(( $stop-$start ))
 echo deep learning ${test} $SLURM_JOBID Job-Time $finish seconds
